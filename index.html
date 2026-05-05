@@ -90,6 +90,27 @@
     <div class="ctrl-row"><label>Opóźnienia w dostawach (dni robocze)</label><input type="range" id="delay" min="0" max="10" step="1" value="2"><span class="val" id="vDelay">2</span></div>
   </div>
 
+  <div class="card" id="ropParams" style="display:none;">
+    <div class="sec">Parametry EOQ (tylko tryb ROP)</div>
+    <div class="ctrl-row"><label>Koszt złożenia zamówienia (zł)</label><input type="range" id="orderCost" min="10" max="1000" step="10" value="100"><span class="val" id="vOrderCost">100</span></div>
+    <div class="ctrl-row"><label>Koszt utrzymania jednostki (zł/rok)</label><input type="range" id="holdCost" min="1" max="500" step="1" value="100"><span class="val" id="vHoldCost">100</span></div>
+  </div>
+
+  <div class="card" style="padding: 0.75rem 1.5rem;">
+    <div style="display:flex; gap:0; border-radius: var(--radius); overflow:hidden; border: 0.5px solid var(--border);">
+      <button id="btnPull" onclick="setMode('pull')"
+        style="flex:1; padding:8px 0; font-size:13px; font-family:inherit; cursor:pointer; border:none;
+               background:var(--blue); color:#fff; font-weight:500; transition:background .15s;">
+        System ssący (Pull)
+      </button>
+      <button id="btnROP" onclick="setMode('rop')"
+        style="flex:1; padding:8px 0; font-size:13px; font-family:inherit; cursor:pointer; border:none;
+               background:var(--surface2); color:var(--muted); font-weight:500; transition:background .15s;">
+        System ROP
+      </button>
+    </div>
+  </div>
+
   <div class="card">
     <div id="ssBreakdown"></div>
     <div class="metrics-grid" id="metrics"></div>
@@ -97,7 +118,7 @@
       <span><svg width="20" height="12"><rect x="0" y="4" width="20" height="4" rx="1" fill="#185FA5"/></svg>Zapas w magazynie</span>
       <span><svg width="20" height="12"><line x1="0" y1="6" x2="20" y2="6" stroke="#5DCAA5" stroke-width="2.5" stroke-dasharray="4,2"/></svg>Zapas w drodze</span>
       <span><svg width="20" height="12"><rect x="0" y="4" width="20" height="4" rx="1" fill="#888780" opacity=".35"/></svg>Zapas łącznie</span>
-      <span><svg width="20" height="12"><line x1="0" y1="6" x2="20" y2="6" stroke="#1D9E75" stroke-width="2" stroke-dasharray="5,3"/></svg>ROP</span>
+      <span><svg width="20" height="12"><line x1="0" y1="6" x2="20" y2="6" stroke="#8B0000" stroke-width="2" stroke-dasharray="5,3"/></svg>ROP</span>
       <span><svg width="20" height="12"><line x1="0" y1="6" x2="20" y2="6" stroke="#D85A30" stroke-width="2" stroke-dasharray="2,4"/></svg>Zapas bezpieczeństwa</span>
     </div>
     <div class="chart-wrap">
@@ -123,7 +144,9 @@ function getP() {
     demVar:   +$('demVar').value / 100,
     quality:  +$('quality').value / 100,
     complete: +$('complete').value / 100,
-    delay:    +$('delay').value
+    delay:    +$('delay').value,
+    orderCost: +($('orderCost').value || 100),
+    holdCost:  +($('holdCost').value  || 100)
   };
 }
 
@@ -140,57 +163,136 @@ function calcSafety(p) {
   return { ss1, ss2, ss3, ss4, total: ss1 + ss2 + ss3 + ss4 };
 }
 
-// Box-Muller: losowa liczba z rozkładu normalnego N(0,1)
-function randNormal() {
-  let u, v;
-  do { u = Math.random(); } while (u === 0);
-  do { v = Math.random(); } while (v === 0);
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
-
-function simulate(p, safetyStock, cycleDemand, orderQty) {
+function simulate(p, safetyStock, cycleDemand, maxLevel, moq, ioq) {
   const WD = 120;
   const physical = [], inTransit = [], available = [], labels = [];
-  let stock = cycleDemand + safetyStock;
+
+  // Poziom docelowy = LT*d + maxLevel
+  // Zamówienie = targetLevel - stock - transit  (zaokr. do IOQ, min MOQ)
+  const targetLevel = p.lead * p.d + maxLevel;
+
+  // In-flight na starcie: zamówienia złożone co cycle przez LT, każde d*cycle szt
   let pipeline = [];
-
-  // Pre-ładuj zamówienia in-flight
-  let orderDay = p.cycle - p.lead;
-  while (orderDay < 0) {
-    pipeline.push({ arrivalWd: orderDay + p.lead, qty: orderQty });
-    orderDay += p.cycle;
+  for (let orderT = -p.lead; orderT <= 0; orderT += p.cycle) {
+    const arrWd = orderT + p.lead;
+    if (arrWd > 0) pipeline.push({ arrivalWd: arrWd, qty: Math.round(p.d * p.cycle) });
   }
-  let nextOrderWd = orderDay;
 
-  // Odchylenie standardowe dziennego popytu = demVar * d (demVar to współczynnik zmienności CV)
-  const sigma = p.demVar * p.d;
+  let stock = maxLevel;
+  let nextOrderWd = p.cycle;
 
   for (let wd = 0; wd <= WD; wd++) {
+    // 1. Przyjmij dostawy
     pipeline = pipeline.filter(del => {
       if (del.arrivalWd <= wd) { stock += del.qty; return false; }
       return true;
     });
+
+    // 2. Zużycie dzienne (zmienne wg demVar, backorder dozwolony)
     if (wd > 0) {
-      const dailyDemand = sigma > 0
-        ? Math.max(0, Math.round(p.d + sigma * randNormal()))
+      const dailyDemand = p.demVar > 0
+        ? Math.max(0, Math.round(p.d * (1 - p.demVar + 2 * p.demVar * Math.random())))
         : p.d;
-      stock = Math.max(0, stock - dailyDemand);
+      stock -= dailyDemand;
     }
+
+    // 3. Złóż zamówienie co cycle dni:
+    //    qty = targetLevel - stock - transit
     const transit = pipeline.reduce((s, d) => s + d.qty, 0);
     if (wd === nextOrderWd) {
-      pipeline.push({ arrivalWd: wd + p.lead, qty: orderQty });
+      const shortage = targetLevel - stock - transit;
+      if (shortage > 0) {
+        const qty = calcOrderQty(shortage, moq, ioq);
+        pipeline.push({ arrivalWd: wd + p.lead, qty: qty });
+      }
       nextOrderWd += p.cycle;
     }
+
+    const transit2 = pipeline.reduce((s, d) => s + d.qty, 0);
     labels.push(wd % 5 === 0 ? 'T' + (Math.floor(wd/5)+1) : '');
     physical.push(Math.round(stock));
-    inTransit.push(Math.round(transit));
-    available.push(Math.round(stock + transit));
+    inTransit.push(Math.round(transit2));
+    available.push(Math.round(stock + transit2));
   }
 
-  const stockouts = physical.filter(s => s === 0).length;
+  const stockBelowZero   = physical.filter(s => s < 0).length;
   const stockBelowSafety = physical.filter(s => s < safetyStock).length;
-  const avgPhysical = Math.round(physical.reduce((a,b) => a+b,0) / physical.length);
-  return { labels, physical, inTransit, available, stockouts, stockBelowSafety, avgPhysical };
+  const avgPhysical      = Math.round(physical.reduce((a,b) => a+b,0) / physical.length);
+  return { labels, physical, inTransit, available, stockBelowZero, stockBelowSafety, avgPhysical };
+}
+
+
+function simulateROP(p, safetyStock, cycleDemand, maxLevel, moq, ioq) {
+  const WD = 120;
+  const physical = [], inTransit = [], available = [], labels = [];
+
+  const rop = Math.round(p.d * p.lead + safetyStock);
+  // EOQ = sqrt(2 * D_roczny * koszt_zamówienia / koszt_utrzymania)
+  // D_roczny = popyt dzienny * 250 dni roboczych
+  const eoq = Math.sqrt(2 * p.d * 250 * p.orderCost / p.holdCost);
+  const orderQty = calcOrderQty(eoq, moq, ioq);
+
+  // In-flight na starcie: dostawy co cycle przez LT, każda orderQty szt
+  let pipeline = [];
+  for (let orderT = -p.lead; orderT <= 0; orderT += p.cycle) {
+    const arrWd = orderT + p.lead;
+    if (arrWd > 0) pipeline.push({ arrivalWd: arrWd, qty: orderQty });
+  }
+
+  let stock = maxLevel;
+  let lastOrderWd = -999;
+
+  for (let wd = 0; wd <= WD; wd++) {
+    // 1. Przyjmij dostawy
+    pipeline = pipeline.filter(del => {
+      if (del.arrivalWd <= wd) { stock += del.qty; return false; }
+      return true;
+    });
+
+    // 2. Zużycie dzienne (backorder dozwolony)
+    if (wd > 0) {
+      const dailyDemand = p.demVar > 0
+        ? Math.max(0, Math.round(p.d * (1 - p.demVar + 2 * p.demVar * Math.random())))
+        : p.d;
+      stock -= dailyDemand;
+    }
+
+    // 3. Złóż zamówienie gdy stock <= ROP, max 1 zamówienie na dobę
+    const transit = pipeline.reduce((s, d) => s + d.qty, 0);
+    if (stock <= rop && wd > lastOrderWd) {
+      pipeline.push({ arrivalWd: wd + p.lead, qty: orderQty });
+      lastOrderWd = wd;
+    }
+
+    const transit2 = pipeline.reduce((s, d) => s + d.qty, 0);
+    labels.push(wd % 5 === 0 ? 'T' + (Math.floor(wd/5)+1) : '');
+    physical.push(Math.round(stock));
+    inTransit.push(Math.round(transit2));
+    available.push(Math.round(stock + transit2));
+  }
+
+  const stockBelowZero   = physical.filter(s => s < 0).length;
+  const stockBelowSafety = physical.filter(s => s < safetyStock).length;
+  const avgPhysical      = Math.round(physical.reduce((a,b) => a+b,0) / physical.length);
+  return { labels, physical, inTransit, available, stockBelowZero, stockBelowSafety, avgPhysical };
+}
+
+
+let currentMode = 'pull';
+
+function setMode(mode) {
+  currentMode = mode;
+  const btnPull = document.getElementById('btnPull');
+  const btnROP  = document.getElementById('btnROP');
+  if (mode === 'pull') {
+    btnPull.style.background = 'var(--blue)'; btnPull.style.color = '#fff';
+    btnROP.style.background  = 'var(--surface2)'; btnROP.style.color = 'var(--muted)';
+  } else {
+    btnROP.style.background  = 'var(--blue)'; btnROP.style.color = '#fff';
+    btnPull.style.background = 'var(--surface2)'; btnPull.style.color = 'var(--muted)';
+  }
+  document.getElementById('ropParams').style.display = mode === 'rop' ? '' : 'none';
+  render();
 }
 
 function render() {
@@ -203,7 +305,9 @@ function render() {
   $('vDemVar').textContent   = Math.round(p.demVar * 100) + '%';
   $('vQuality').textContent  = Math.round(p.quality * 100) + '%';
   $('vComplete').textContent = Math.round(p.complete * 100) + '%';
-  $('vDelay').textContent    = p.delay;
+  $('vDelay').textContent     = p.delay;
+  if (document.getElementById('vOrderCost')) $('vOrderCost').textContent = p.orderCost;
+  if (document.getElementById('vHoldCost'))  $('vHoldCost').textContent  = p.holdCost;
 
   const ss          = calcSafety(p);
   const safetyStock = Math.round(ss.total);
@@ -223,17 +327,19 @@ function render() {
       '<div class="ss-total"><span>Łącznie</span><span>' + safetyStock + ' szt</span></div>' +
     '</div>';
 
-  const sim        = simulate(p, safetyStock, cycleDemand, orderQty);
+  const sim = currentMode === 'rop'
+    ? simulateROP(p, safetyStock, cycleDemand, maxLevel, p.moq, p.ioq)
+    : simulate(p, safetyStock, cycleDemand, maxLevel, p.moq, p.ioq);
   const daysStock  = Math.round(sim.avgPhysical / p.d);
   const weeksStock = (daysStock / 5).toFixed(1).replace(/\.0$/, '');
 
   $('metrics').innerHTML =
     '<div class="mc"><div class="lbl">Zapas rotujący</div><div class="num">' + Math.round(cycleDemand) + '<span class="unit">szt</span></div><div class="sub">' + p.cycle + ' dni rob. × ' + p.d + ' szt</div></div>' +
-    '<div class="mc"><div class="lbl">Maks. poziom magazynu</div><div class="num">' + maxLevel + '<span class="unit">szt</span></div><div class="sub">rotujący + ZB</div></div>' +
+    '<div class="mc"><div class="lbl">Maks. poziom zapasu w magazynie</div><div class="num">' + maxLevel + '<span class="unit">szt</span></div><div class="sub">rotujący + zap.bezp.</div></div>' +
     '<div class="mc"><div class="lbl">Partia dostawy</div><div class="num ' + (excess > 0 ? 'warn' : 'ok') + '">' + orderQty + '<span class="unit">szt</span></div><div class="sub">MOQ ' + p.moq + ', IOQ ' + p.ioq + (excess > 0 ? ', nadwyżka +' + Math.round(excess) : '') + '</div></div>' +
     '<div class="mc"><div class="lbl">Zapas bezpieczeństwa</div><div class="num">' + safetyStock + '<span class="unit">szt</span></div></div>' +
     '<div class="mc"><div class="lbl">ROP</div><div class="num">' + rop + '<span class="unit">szt</span></div><div class="sub">LT ' + p.lead + ' dni rob. + ZB</div></div>' +
-    '<div class="mc"><div class="lbl">Dni rob. poniżej ZB</div><div class="num ' + (sim.stockBelowSafety > 0 ? 'warn' : 'ok') + '">' + sim.stockBelowSafety + '<span class="unit">/120</span></div></div>';
+    '<div class="mc"><div class="lbl">Poziom serwisu</div><div class="num ' + (sim.stockBelowZero > 0 ? 'warn' : 'ok') + '">' + Math.round((1 - sim.stockBelowZero / 120) * 100) + '<span class="unit">%</span></div><div class="sub">backorder: ' + sim.stockBelowZero + ' / 120 dni rob.</div></div>';
 
   const ropLine    = Array(sim.labels.length).fill(rop);
   const safetyLine = Array(sim.labels.length).fill(safetyStock);
@@ -250,7 +356,7 @@ function render() {
         { label: 'Zapas w magazynie',    data: sim.physical,  borderColor: '#185FA5', backgroundColor: 'rgba(24,95,165,0.08)',  fill: true, borderWidth: 2,   pointRadius: 0, tension: 0, order: 1 },
         { label: 'Zapas w drodze',       data: sim.inTransit, borderColor: '#5DCAA5', backgroundColor: 'rgba(93,202,165,0.08)', fill: true, borderWidth: 2,   pointRadius: 0, tension: 0, order: 2, borderDash: [4,2] },
         { label: 'Zapas łącznie',        data: sim.available, borderColor: isDark ? 'rgba(180,178,169,0.45)' : 'rgba(136,135,128,0.40)', backgroundColor: 'rgba(136,135,128,0.05)', fill: true, borderWidth: 1.5, pointRadius: 0, tension: 0, order: 3, borderDash: [2,3] },
-        { label: 'ROP',                  data: ropLine,       borderColor: '#1D9E75', fill: false, borderWidth: 1.5, pointRadius: 0, tension: 0, order: 4, borderDash: [5,3] },
+        { label: 'ROP',                  data: ropLine,       borderColor: '#8B0000', fill: false, borderWidth: 1.5, pointRadius: 0, tension: 0, order: 4, borderDash: [5,3] },
         { label: 'Zapas bezpieczeństwa', data: safetyLine,    borderColor: '#D85A30', fill: false, borderWidth: 1,   pointRadius: 0, tension: 0, order: 5, borderDash: [2,4] }
       ]
     },
@@ -273,7 +379,7 @@ function render() {
       },
       scales: {
         x: { title: { display: true, text: 'Tydzien (os w dniach roboczych)', color: textColor, font: { size: 12 } }, ticks: { color: textColor, font: { size: 11 }, maxRotation: 0, autoSkip: false }, grid: { color: gridColor } },
-        y: { title: { display: true, text: 'Zapas (szt)', color: textColor, font: { size: 12 } }, ticks: { color: textColor, font: { size: 11 } }, min: 0, grid: { color: gridColor } }
+        y: { title: { display: true, text: 'Zapas (szt)', color: textColor, font: { size: 12 } }, ticks: { color: textColor, font: { size: 11 } }, grid: { color: gridColor } }
       }
     }
   });
@@ -302,7 +408,7 @@ function render() {
   $('insight').innerHTML = lines.map(function(l){ return '<div>' + l + '</div>'; }).join('');
 }
 
-['demand','moq','ioq','cycle','lead','demVar','quality','complete','delay']
+['demand','moq','ioq','cycle','lead','demVar','quality','complete','delay','orderCost','holdCost']
   .forEach(function(id){ $(id).addEventListener('input', render); });
 
 render();
