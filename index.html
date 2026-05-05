@@ -140,20 +140,42 @@ function calcSafety(p) {
   return { ss1, ss2, ss3, ss4, total: ss1 + ss2 + ss3 + ss4 };
 }
 
+// Box-Muller: losowa liczba z rozkładu normalnego N(0,1)
+function randNormal() {
+  let u, v;
+  do { u = Math.random(); } while (u === 0);
+  do { v = Math.random(); } while (v === 0);
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
 function simulate(p, safetyStock, cycleDemand, orderQty) {
   const WD = 120;
   const physical = [], inTransit = [], available = [], labels = [];
   let stock = cycleDemand + safetyStock;
   let pipeline = [];
-  let nextOrderWd = p.cycle;
-  pipeline.push({ arrivalWd: p.lead, qty: orderQty });
+
+  // Pre-ładuj zamówienia in-flight
+  let orderDay = p.cycle - p.lead;
+  while (orderDay < 0) {
+    pipeline.push({ arrivalWd: orderDay + p.lead, qty: orderQty });
+    orderDay += p.cycle;
+  }
+  let nextOrderWd = orderDay;
+
+  // Odchylenie standardowe dziennego popytu = demVar * d (demVar to współczynnik zmienności CV)
+  const sigma = p.demVar * p.d;
 
   for (let wd = 0; wd <= WD; wd++) {
     pipeline = pipeline.filter(del => {
       if (del.arrivalWd <= wd) { stock += del.qty; return false; }
       return true;
     });
-    if (wd > 0) stock = Math.max(0, stock - p.d);
+    if (wd > 0) {
+      const dailyDemand = sigma > 0
+        ? Math.max(0, Math.round(p.d + sigma * randNormal()))
+        : p.d;
+      stock = Math.max(0, stock - dailyDemand);
+    }
     const transit = pipeline.reduce((s, d) => s + d.qty, 0);
     if (wd === nextOrderWd) {
       pipeline.push({ arrivalWd: wd + p.lead, qty: orderQty });
