@@ -391,19 +391,34 @@ function render() {
     { name: 'opoznienia dostaw',    v: ss.ss4 }
   ].sort(function(a,b){ return b.v - a.v; })[0];
 
-  var lines = [
-    'Zapas w magazynie = zapas rotujacy (' + Math.round(cycleDemand) + ' szt) + zapas bezpieczenstwa (' + safetyStock + ' szt) = ' + maxLevel + ' szt na poziomie maksymalnym.',
-    'Partia dostawy: ' + orderQty + ' szt (zaokraglona do IOQ ' + p.ioq + ' szt, nie mniej niz MOQ ' + p.moq + ' szt' + (excess > 0 ? ', nadwyzka +' + Math.round(excess) + ' szt ponad zapas rotujacy' : '') + ').',
-    p.lead > p.cycle
-      ? 'LT (' + p.lead + ' dni roboczych) > cykl (' + p.cycle + ' dni roboczych) - jednoczesnie w drodze ' + Math.ceil(p.lead / p.cycle) + ' zamowien.'
-      : 'LT (' + p.lead + ' dni roboczych) <= cykl (' + p.cycle + ' dni roboczych) - w drodze najwyzej 1 zamowienie.',
-    safetyStock > 0 ? 'Dominujacy skladnik ZB: ' + dominantSS.name + ' (' + Math.round(dominantSS.v) + ' szt).' : null,
-    sim.stockouts > 0
-      ? 'Stockout przez ' + sim.stockouts + ' dni roboczych - zwieksz ZB lub skroc cykl.'
+  var eoq = Math.round(Math.sqrt(2 * p.d * 250 * p.orderCost / p.holdCost));
+  var eoqRounded = calcOrderQty(eoq, p.moq, p.ioq);
+
+  var linesPull = [
+    'Zapas w magazynie = zapas rotujący (' + Math.round(cycleDemand) + ' szt) + zapas bezpieczeństwa (' + safetyStock + ' szt) = ' + maxLevel + ' szt na poziomie maksymalnym.',
+    'Uzupełnianie do poziomu docelowego: ' + (p.lead * p.d + maxLevel) + ' szt (LT × popyt + max. poziom magazynu). Zamówienie składane co ' + p.cycle + ' dni roboczych.',
+    'Partia dostawy: ' + orderQty + ' szt (zaokrąglona do IOQ ' + p.ioq + ' szt, nie mniej niż MOQ ' + p.moq + ' szt' + (excess > 0 ? ', nadwyżka +' + Math.round(excess) + ' szt ponad zapas rotujący' : '') + ').',
+    safetyStock > 0 ? 'Dominujący składnik zapasu bezpieczeństwa: ' + dominantSS.name + ' (' + Math.round(dominantSS.v) + ' szt).' : null,
+    sim.stockBelowZero > 0
+      ? 'Backorder przez ' + sim.stockBelowZero + ' dni roboczych — zwiększ zapas bezpieczeństwa lub skróć cykl zamawiania.'
       : sim.stockBelowSafety > 0
-        ? 'Przez ' + sim.stockBelowSafety + ' dni roboczych zapas spada ponizej poziomu bezpieczenstwa.'
-        : 'Zapas bezpieczenstwa utrzymany przez caly horyzont 120 dni roboczych (24 tygodnie).'
+        ? 'Przez ' + sim.stockBelowSafety + ' dni roboczych zapas spada poniżej poziomu bezpieczeństwa.'
+        : 'Zapas bezpieczeństwa utrzymany przez cały horyzont 120 dni roboczych (24 tygodnie).'
   ].filter(Boolean);
+
+  var linesROP = [
+    'System ROP: zamówienie składane gdy zapas w magazynie ≤ ROP (' + rop + ' szt = LT ' + p.lead + ' dni rob. × ' + p.d + ' szt/dzień + zap.bezp. ' + safetyStock + ' szt).',
+    'Wielkość zamówienia wyznaczona przez EOQ (formuła Wilsona): √(2 × ' + (p.d*250) + ' szt/rok × ' + p.orderCost + ' zł / ' + p.holdCost + ' zł) = ' + eoq + ' szt, zaokrąglona do ' + eoqRounded + ' szt (MOQ/IOQ).',
+    'Zapas w drodze nie jest stały — zależy od momentu złożenia zamówienia (reakcja na bieżące zużycie).',
+    safetyStock > 0 ? 'Dominujący składnik zapasu bezpieczeństwa: ' + dominantSS.name + ' (' + Math.round(dominantSS.v) + ' szt).' : null,
+    sim.stockBelowZero > 0
+      ? 'Backorder przez ' + sim.stockBelowZero + ' dni roboczych — zwiększ zapas bezpieczeństwa lub EOQ.'
+      : sim.stockBelowSafety > 0
+        ? 'Przez ' + sim.stockBelowSafety + ' dni roboczych zapas spada poniżej poziomu bezpieczeństwa.'
+        : 'Zapas bezpieczeństwa utrzymany przez cały horyzont 120 dni roboczych (24 tygodnie).'
+  ].filter(Boolean);
+
+  var lines = currentMode === 'rop' ? linesROP : linesPull;
 
   $('insight').innerHTML = lines.map(function(l){ return '<div>' + l + '</div>'; }).join('');
 }
