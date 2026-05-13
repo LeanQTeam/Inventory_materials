@@ -25,9 +25,12 @@
   }
   body { background: var(--bg); color: var(--text); min-height: 100vh; padding: 2rem 1rem; }
   .container { max-width: 820px; margin: 0 auto; }
-  header { margin-bottom: 2rem; }
-  header h1 { font-size: 20px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
-  header p { font-size: 13px; color: var(--muted); }
+  header { margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-start; }
+  header .title-block h1 { font-size: 20px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  header .title-block p { font-size: 13px; color: var(--muted); }
+  .lang-switch { display: flex; gap: 0; border-radius: var(--radius); overflow: hidden; border: 0.5px solid var(--border); flex-shrink: 0; margin-top: 2px; }
+  .lang-switch button { padding: 5px 14px; font-size: 12px; font-family: inherit; cursor: pointer; border: none; background: var(--surface2); color: var(--muted); font-weight: 500; transition: background .15s; }
+  .lang-switch button.active { background: var(--blue); color: #fff; }
   .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
   .sec { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding-bottom: 8px; border-bottom: 0.5px solid var(--border); margin-bottom: 1rem; }
   .ctrl-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
@@ -61,6 +64,7 @@
     .note { margin-left: 172px; }
     .metrics-grid { grid-template-columns: 1fr 1fr; }
     .ss-breakdown { grid-template-columns: 1fr; }
+    header { flex-direction: column; gap: 10px; }
   }
 </style>
 </head>
@@ -68,32 +72,38 @@
 <div class="container">
 
   <header>
-    <h1>Symulacja zapasu materiałów</h1>
-    <p>Horyzont symulacji: 120 dni roboczych (24 tygodnie). Wszystkie parametry wyrażone w dniach roboczych.</p>
+    <div class="title-block">
+      <h1 id="hTitle">Symulacja zapasu materiałów</h1>
+      <p id="hSubtitle">Horyzont symulacji: 120 dni roboczych (24 tygodnie). Wszystkie parametry wyrażone w dniach roboczych.</p>
+    </div>
+    <div class="lang-switch">
+      <button id="btnPL" class="active" onclick="setLang('pl')">PL</button>
+      <button id="btnEN" onclick="setLang('en')">EN</button>
+    </div>
   </header>
 
   <div class="card">
-    <div class="sec">Parametry popytu i zamawiania</div>
-    <div class="ctrl-row"><label>Popyt dzienny (szt/dzień roboczy)</label><input type="range" id="demand" min="5" max="100" step="1" value="20"><span class="val" id="vDemand">20</span></div>
-    <div class="ctrl-row"><label>MOQ – minimalna partia (szt)</label><input type="range" id="moq" min="10" max="600" step="10" value="100"><span class="val" id="vMoq">100</span></div>
-    <div class="ctrl-row"><label>IOQ – przyrost partii (szt)</label><input type="range" id="ioq" min="1" max="200" step="1" value="10"><span class="val" id="vIoq">10</span></div>
-    <div class="ctrl-row"><label>Cykl zamawiania (dni robocze)</label><input type="range" id="cycle" min="1" max="30" step="1" value="5"><span class="val" id="vCycle">5</span></div>
-    <div class="note">1 tydzień = 5 dni roboczych</div>
-    <div class="ctrl-row"><label>Lead time dostaw (dni robocze)</label><input type="range" id="lead" min="1" max="30" step="1" value="10"><span class="val" id="vLead">10</span></div>
+    <div class="sec" id="secDemand">Parametry popytu i zamawiania</div>
+    <div class="ctrl-row"><label id="lDemand">Popyt dzienny (szt/dzień roboczy)</label><input type="range" id="demand" min="5" max="100" step="1" value="20"><span class="val" id="vDemand">20</span></div>
+    <div class="ctrl-row"><label id="lMoq">MOQ – minimalna partia (szt)</label><input type="range" id="moq" min="10" max="600" step="10" value="100"><span class="val" id="vMoq">100</span></div>
+    <div class="ctrl-row"><label id="lIoq">IOQ – przyrost partii (szt)</label><input type="range" id="ioq" min="1" max="200" step="1" value="10"><span class="val" id="vIoq">10</span></div>
+    <div class="ctrl-row"><label id="lCycle">Cykl zamawiania (dni robocze)</label><input type="range" id="cycle" min="1" max="30" step="1" value="5"><span class="val" id="vCycle">5</span></div>
+    <div class="note" id="noteWeek">1 tydzień = 5 dni roboczych</div>
+    <div class="ctrl-row"><label id="lLead">Lead time dostaw (dni robocze)</label><input type="range" id="lead" min="1" max="30" step="1" value="10"><span class="val" id="vLead">10</span></div>
   </div>
 
   <div class="card">
-    <div class="sec">Składniki zapasu bezpieczeństwa</div>
-    <div class="ctrl-row"><label>Odchylenia w zapotrzebowaniu (%)</label><input type="range" id="demVar" min="0" max="500" step="10" value="10"><span class="val" id="vDemVar">10%</span></div>
-    <div class="ctrl-row"><label>Poziom jakości dostaw (%)</label><input type="range" id="quality" min="50" max="100" step="1" value="95"><span class="val" id="vQuality">95%</span></div>
-    <div class="ctrl-row"><label>Poziom kompletności dostaw (%)</label><input type="range" id="complete" min="50" max="100" step="1" value="97"><span class="val" id="vComplete">97%</span></div>
-    <div class="ctrl-row"><label>Opóźnienia w dostawach (dni robocze)</label><input type="range" id="delay" min="0" max="10" step="1" value="2"><span class="val" id="vDelay">2</span></div>
+    <div class="sec" id="secSafety">Składniki zapasu bezpieczeństwa</div>
+    <div class="ctrl-row"><label id="lDemVar">Odchylenia w zapotrzebowaniu (%)</label><input type="range" id="demVar" min="0" max="500" step="10" value="10"><span class="val" id="vDemVar">10%</span></div>
+    <div class="ctrl-row"><label id="lQuality">Poziom jakości dostaw (%)</label><input type="range" id="quality" min="50" max="100" step="1" value="95"><span class="val" id="vQuality">95%</span></div>
+    <div class="ctrl-row"><label id="lComplete">Poziom kompletności dostaw (%)</label><input type="range" id="complete" min="50" max="100" step="1" value="97"><span class="val" id="vComplete">97%</span></div>
+    <div class="ctrl-row"><label id="lDelay">Opóźnienia w dostawach (dni robocze)</label><input type="range" id="delay" min="0" max="10" step="1" value="2"><span class="val" id="vDelay">2</span></div>
   </div>
 
   <div class="card" id="ropParams" style="display:none;">
-    <div class="sec">Parametry EOQ (tylko tryb ROP)</div>
-    <div class="ctrl-row"><label>Koszt złożenia zamówienia (zł)</label><input type="range" id="orderCost" min="10" max="1000" step="10" value="100"><span class="val" id="vOrderCost">100</span></div>
-    <div class="ctrl-row"><label>Koszt utrzymania jednostki (zł/rok)</label><input type="range" id="holdCost" min="1" max="500" step="1" value="100"><span class="val" id="vHoldCost">100</span></div>
+    <div class="sec" id="secEoq">Parametry EOQ (tylko tryb ROP)</div>
+    <div class="ctrl-row"><label id="lOrderCost">Koszt złożenia zamówienia (zł)</label><input type="range" id="orderCost" min="10" max="1000" step="10" value="100"><span class="val" id="vOrderCost">100</span></div>
+    <div class="ctrl-row"><label id="lHoldCost">Koszt utrzymania jednostki (zł/rok)</label><input type="range" id="holdCost" min="1" max="500" step="1" value="100"><span class="val" id="vHoldCost">100</span></div>
   </div>
 
   <div class="card" style="padding: 0.75rem 1.5rem;">
@@ -101,12 +111,12 @@
       <button id="btnPull" onclick="setMode('pull')"
         style="flex:1; padding:8px 0; font-size:13px; font-family:inherit; cursor:pointer; border:none;
                background:var(--blue); color:#fff; font-weight:500; transition:background .15s;">
-        System ssący (Pull)
+        <span id="btnPullLabel">System ssący (Pull)</span>
       </button>
       <button id="btnROP" onclick="setMode('rop')"
         style="flex:1; padding:8px 0; font-size:13px; font-family:inherit; cursor:pointer; border:none;
                background:var(--surface2); color:var(--muted); font-weight:500; transition:background .15s;">
-        System ROP
+        <span id="btnROPLabel">System ROP (EOQ)</span>
       </button>
     </div>
   </div>
@@ -115,175 +125,210 @@
     <div id="ssBreakdown"></div>
     <div class="metrics-grid" id="metrics"></div>
     <div class="legend">
-      <span><svg width="20" height="12"><rect x="0" y="4" width="20" height="4" rx="1" fill="#185FA5"/></svg>Zapas w magazynie</span>
-      <span><svg width="20" height="12"><line x1="0" y1="6" x2="20" y2="6" stroke="#5DCAA5" stroke-width="2.5" stroke-dasharray="4,2"/></svg>Zapas w drodze</span>
-      <span><svg width="20" height="12"><rect x="0" y="4" width="20" height="4" rx="1" fill="#888780" opacity=".35"/></svg>Zapas łącznie</span>
+      <span><svg width="20" height="12"><rect x="0" y="4" width="20" height="4" rx="1" fill="#185FA5"/></svg><span id="legStock">Zapas w magazynie</span></span>
+      <span><svg width="20" height="12"><line x1="0" y1="6" x2="20" y2="6" stroke="#5DCAA5" stroke-width="2.5" stroke-dasharray="4,2"/></svg><span id="legTransit">Zapas w drodze</span></span>
+      <span><svg width="20" height="12"><rect x="0" y="4" width="20" height="4" rx="1" fill="#888780" opacity=".35"/></svg><span id="legTotal">Zapas łącznie</span></span>
       <span><svg width="20" height="12"><line x1="0" y1="6" x2="20" y2="6" stroke="#8B0000" stroke-width="2" stroke-dasharray="5,3"/></svg>ROP</span>
-      <span><svg width="20" height="12"><line x1="0" y1="6" x2="20" y2="6" stroke="#D85A30" stroke-width="2" stroke-dasharray="2,4"/></svg>Zapas bezpieczeństwa</span>
+      <span><svg width="20" height="12"><line x1="0" y1="6" x2="20" y2="6" stroke="#D85A30" stroke-width="2" stroke-dasharray="2,4"/></svg><span id="legSafety">Zapas bezpieczeństwa</span></span>
     </div>
     <div class="chart-wrap">
-      <canvas id="chart" role="img" aria-label="Wykres poziomu zapasu materiałów w dniach roboczych"></canvas>
+      <canvas id="chart"></canvas>
     </div>
     <div class="insight" id="insight"></div>
   </div>
 
   <footer>LeanQ Team sp. z o.o.</footer>
-
 </div>
+
 <script>
-const $ = id => document.getElementById(id);
-let chart;
+var lang = 'pl';
+var currentMode = 'pull';
+var chart;
 
-function getP() {
-  return {
-    d:        +$('demand').value,
-    moq:      +$('moq').value,
-    ioq:      +$('ioq').value,
-    cycle:    +$('cycle').value,
-    lead:     +$('lead').value,
-    demVar:   +$('demVar').value / 100,
-    quality:  +$('quality').value / 100,
-    complete: +$('complete').value / 100,
-    delay:    +$('delay').value,
-    orderCost: +($('orderCost').value || 100),
-    holdCost:  +($('holdCost').value  || 100)
-  };
-}
-
-function calcOrderQty(needed, moq, ioq) {
-  const base = Math.max(needed, moq);
-  return Math.ceil(base / ioq) * ioq;
-}
-
-function calcSafety(p) {
-  const ss1 = p.cycle * p.d * p.demVar;
-  const ss2 = p.cycle * p.d * (1 - p.quality);
-  const ss3 = p.cycle * p.d * (1 - p.complete);
-  const ss4 = p.delay * p.d;
-  return { ss1, ss2, ss3, ss4, total: ss1 + ss2 + ss3 + ss4 };
-}
-
-function simulate(p, safetyStock, cycleDemand, maxLevel, moq, ioq) {
-  const WD = 120;
-  const physical = [], inTransit = [], available = [], labels = [];
-
-  // Poziom docelowy = LT*d + maxLevel
-  // Zamówienie = targetLevel - stock - transit  (zaokr. do IOQ, min MOQ)
-  const targetLevel = p.lead * p.d + maxLevel;
-
-  // In-flight na starcie: zamówienia złożone co cycle przez LT, każde d*cycle szt
-  let pipeline = [];
-  for (let orderT = -p.lead; orderT <= 0; orderT += p.cycle) {
-    const arrWd = orderT + p.lead;
-    if (arrWd > 0) pipeline.push({ arrivalWd: arrWd, qty: Math.round(p.d * p.cycle) });
+var TR = {
+  pl: {
+    title: 'Symulacja zapasu materiałów',
+    subtitle: 'Horyzont symulacji: 120 dni roboczych (24 tygodnie). Wszystkie parametry wyrażone w dniach roboczych.',
+    secDemand: 'Parametry popytu i zamawiania',
+    lDemand: 'Popyt dzienny (szt/dzień roboczy)',
+    lMoq: 'MOQ \u2013 minimalna partia (szt)',
+    lIoq: 'IOQ \u2013 przyrost partii (szt)',
+    lCycle: 'Cykl zamawiania (dni robocze)',
+    noteWeek: '1 tydzień = 5 dni roboczych',
+    lLead: 'Lead time dostaw (dni robocze)',
+    secSafety: 'Składniki zapasu bezpieczeństwa',
+    lDemVar: 'Odchylenia w zapotrzebowaniu (%)',
+    lQuality: 'Poziom jakości dostaw (%)',
+    lComplete: 'Poziom kompletności dostaw (%)',
+    lDelay: 'Opóźnienia w dostawach (dni robocze)',
+    secEoq: 'Parametry EOQ (tylko tryb ROP)',
+    lOrderCost: 'Koszt złożenia zamówienia (zł)',
+    lHoldCost: 'Koszt utrzymania jednostki (zł/rok)',
+    btnPull: 'System ssący (Pull)',
+    btnROP: 'System ROP (EOQ)',
+    legStock: 'Zapas w magazynie',
+    legTransit: 'Zapas w drodze',
+    legTotal: 'Zapas łącznie',
+    legSafety: 'Zapas bezpieczeństwa',
+    ssBdHdr: 'Rozkład zapasu bezpieczeństwa',
+    ssBdDemVar: 'Odchylenia popytu',
+    ssBdQuality: 'Braki jakościowe',
+    ssBdComplete: 'Niekompletne dostawy',
+    ssBdDelay: 'Opóźnienia dostaw',
+    ssBdTotal: 'Łącznie',
+    mRotating: 'Zapas rotujący',
+    mRotatingSub: function(c,d){ return c + ' dni rob. \xd7 ' + d + ' szt'; },
+    mMaxLevel: 'Maks. poziom zapasu w magazynie',
+    mMaxLevelSub: 'rotujący + zap.bezp.',
+    mOrderQty: 'Partia dostawy',
+    mOrderQtySub: function(moq,ioq,excess){ return 'MOQ ' + moq + ', IOQ ' + ioq + (excess > 0 ? ', nadwyżka +' + excess : ''); },
+    mSafety: 'Zapas bezpieczeństwa',
+    mRop: 'ROP',
+    mRopSub: function(lead){ return 'LT ' + lead + ' dni rob. + zap.bezp.'; },
+    mService: 'Poziom serwisu',
+    mServiceSub: function(n){ return 'backorder: ' + n + ' / 120 dni rob.'; },
+    mEoq: 'EOQ',
+    mEoqSub: function(eoq,rounded){ return 'teoria: ' + eoq + ' szt, partia: ' + rounded + ' szt'; },
+    xAxis: 'Tydzień (oś w dniach roboczych)',
+    yAxis: 'Zapas (szt)',
+    tooltipTitle: function(week, day, wd){ var d=['Pn','Wt','Śr','Cz','Pt']; return 'Tydz. '+week+', '+d[day]+' (dzień roboczy '+wd+')'; },
+    tooltipUnit: ' szt',
+    insightPull: function(cycleDemand, safetyStock, maxLevel, targetLevel, cycle, orderQty, ioq, moq, excess, dominantName, dominantVal, belowZero, belowSafety){
+      return [
+        'Zapas w magazynie = zapas rotujący (' + cycleDemand + ' szt) + zapas bezpieczeństwa (' + safetyStock + ' szt) = ' + maxLevel + ' szt na poziomie maksymalnym.',
+        'Uzupełnianie do poziomu docelowego: ' + targetLevel + ' szt (LT × popyt + maks. poziom magazynu). Zamówienie składane co ' + cycle + ' dni roboczych.',
+        'Partia dostawy: ' + orderQty + ' szt (zaokrąglona do IOQ ' + ioq + ' szt, nie mniej niż MOQ ' + moq + ' szt' + (excess > 0 ? ', nadwyżka +' + excess + ' szt ponad zapas rotujący' : '') + ').',
+        safetyStock > 0 ? 'Dominujący składnik zapasu bezpieczeństwa: ' + dominantName + ' (' + dominantVal + ' szt).' : null,
+        belowZero > 0 ? 'Backorder przez ' + belowZero + ' dni roboczych — zwiększ zapas bezpieczeństwa lub skróć cykl zamawiania.'
+          : belowSafety > 0 ? 'Przez ' + belowSafety + ' dni roboczych zapas spada poniżej poziomu bezpieczeństwa.'
+          : 'Zapas bezpieczeństwa utrzymany przez cały horyzont 120 dni roboczych (24 tygodnie).'
+      ].filter(Boolean);
+    },
+    insightROP: function(rop, lead, d, safetyStock, dAnnual, orderCost, holdCost, eoq, eoqRounded, dominantName, dominantVal, belowZero, belowSafety){
+      return [
+        'System ROP: zamówienie składane gdy zapas w magazynie ≤ ROP (' + rop + ' szt = LT ' + lead + ' dni rob. × ' + d + ' szt/dzień + zap.bezp. ' + safetyStock + ' szt).',
+        'Wielkość zamówienia wyznaczona przez EOQ (formuła Wilsona): √(2 × ' + dAnnual + ' szt/rok × ' + orderCost + ' zł / ' + holdCost + ' zł) = ' + eoq + ' szt, zaokrąglona do ' + eoqRounded + ' szt (MOQ/IOQ).',
+        'Zapas w drodze nie jest stały — zależy od momentu złożenia zamówienia (reakcja na bieżące zużycie).',
+        safetyStock > 0 ? 'Dominujący składnik zapasu bezpieczeństwa: ' + dominantName + ' (' + dominantVal + ' szt).' : null,
+        belowZero > 0 ? 'Backorder przez ' + belowZero + ' dni roboczych — zwiększ zapas bezpieczeństwa lub EOQ.'
+          : belowSafety > 0 ? 'Przez ' + belowSafety + ' dni roboczych zapas spada poniżej poziomu bezpieczeństwa.'
+          : 'Zapas bezpieczeństwa utrzymany przez cały horyzont 120 dni roboczych (24 tygodnie).'
+      ].filter(Boolean);
+    },
+    domVariants: ['odchylenia popytu','braki jakościowe','niekompletne dostawy','opóźnienia dostaw']
+  },
+  en: {
+    title: 'Material Inventory Simulation',
+    subtitle: 'Simulation horizon: 120 working days (24 weeks). All parameters expressed in working days.',
+    secDemand: 'Demand & ordering parameters',
+    lDemand: 'Daily demand (pcs/working day)',
+    lMoq: 'MOQ \u2013 minimum order quantity (pcs)',
+    lIoq: 'IOQ \u2013 order increment (pcs)',
+    lCycle: 'Order cycle (working days)',
+    noteWeek: '1 week = 5 working days',
+    lLead: 'Delivery lead time (working days)',
+    secSafety: 'Safety stock components',
+    lDemVar: 'Demand variability (%)',
+    lQuality: 'Delivery quality level (%)',
+    lComplete: 'Delivery completeness level (%)',
+    lDelay: 'Delivery delays (working days)',
+    secEoq: 'EOQ parameters (ROP mode only)',
+    lOrderCost: 'Order placement cost (PLN)',
+    lHoldCost: 'Unit holding cost (PLN/year)',
+    btnPull: 'Pull system',
+    btnROP: 'ROP system (EOQ)',
+    legStock: 'Stock on hand',
+    legTransit: 'Stock in transit',
+    legTotal: 'Total stock',
+    legSafety: 'Safety stock',
+    ssBdHdr: 'Safety stock breakdown',
+    ssBdDemVar: 'Demand variability',
+    ssBdQuality: 'Quality rejects',
+    ssBdComplete: 'Incomplete deliveries',
+    ssBdDelay: 'Delivery delays',
+    ssBdTotal: 'Total',
+    mRotating: 'Cycle stock',
+    mRotatingSub: function(c,d){ return c + ' days \xd7 ' + d + ' pcs'; },
+    mMaxLevel: 'Max. stock level',
+    mMaxLevelSub: 'cycle + safety stock',
+    mOrderQty: 'Order quantity',
+    mOrderQtySub: function(moq,ioq,excess){ return 'MOQ ' + moq + ', IOQ ' + ioq + (excess > 0 ? ', surplus +' + excess : ''); },
+    mSafety: 'Safety stock',
+    mRop: 'ROP',
+    mRopSub: function(lead){ return 'LT ' + lead + ' days + safety stock'; },
+    mService: 'Service level',
+    mServiceSub: function(n){ return 'backorder: ' + n + ' / 120 days'; },
+    mEoq: 'EOQ',
+    mEoqSub: function(eoq,rounded){ return 'theory: ' + eoq + ' pcs, order: ' + rounded + ' pcs'; },
+    xAxis: 'Week (axis in working days)',
+    yAxis: 'Stock (pcs)',
+    tooltipTitle: function(week,day,wd){ var d=['Mo','Tu','We','Th','Fr']; return 'Week '+week+', '+d[day]+' (working day '+wd+')'; },
+    tooltipUnit: ' pcs',
+    insightPull: function(cycleDemand, safetyStock, maxLevel, targetLevel, cycle, orderQty, ioq, moq, excess, dominantName, dominantVal, belowZero, belowSafety){
+      return [
+        'Stock on hand = cycle stock (' + cycleDemand + ' pcs) + safety stock (' + safetyStock + ' pcs) = ' + maxLevel + ' pcs at maximum level.',
+        'Replenishment to target level: ' + targetLevel + ' pcs (LT × demand + max stock level). Order placed every ' + cycle + ' working days.',
+        'Order quantity: ' + orderQty + ' pcs (rounded up to IOQ ' + ioq + ' pcs, min MOQ ' + moq + ' pcs' + (excess > 0 ? ', surplus +' + excess + ' pcs over cycle stock' : '') + ').',
+        safetyStock > 0 ? 'Dominant safety stock component: ' + dominantName + ' (' + dominantVal + ' pcs).' : null,
+        belowZero > 0 ? 'Backorder for ' + belowZero + ' working days — increase safety stock or shorten order cycle.'
+          : belowSafety > 0 ? 'Stock falls below safety level for ' + belowSafety + ' working days.'
+          : 'Safety stock maintained throughout the full 120-working-day horizon (24 weeks).'
+      ].filter(Boolean);
+    },
+    insightROP: function(rop, lead, d, safetyStock, dAnnual, orderCost, holdCost, eoq, eoqRounded, dominantName, dominantVal, belowZero, belowSafety){
+      return [
+        'ROP system: order placed when stock on hand \u2264 ROP (' + rop + ' pcs = LT ' + lead + ' days \xd7 ' + d + ' pcs/day + safety stock ' + safetyStock + ' pcs).',
+        'Order quantity determined by EOQ (Wilson formula): \u221a(2 \xd7 ' + dAnnual + ' pcs/yr \xd7 ' + orderCost + ' PLN / ' + holdCost + ' PLN) = ' + eoq + ' pcs, rounded to ' + eoqRounded + ' pcs (MOQ/IOQ).',
+        'Stock in transit is not constant — it depends on when orders are placed (reaction to actual consumption).',
+        safetyStock > 0 ? 'Dominant safety stock component: ' + dominantName + ' (' + dominantVal + ' pcs).' : null,
+        belowZero > 0 ? 'Backorder for ' + belowZero + ' working days — increase safety stock or EOQ.'
+          : belowSafety > 0 ? 'Stock falls below safety level for ' + belowSafety + ' working days.'
+          : 'Safety stock maintained throughout the full 120-working-day horizon (24 weeks).'
+      ].filter(Boolean);
+    },
+    domVariants: ['demand variability','quality rejects','incomplete deliveries','delivery delays']
   }
+};
 
-  let stock = maxLevel;
-  let nextOrderWd = p.cycle;
+function t(key){ return TR[lang][key]; }
 
-  for (let wd = 0; wd <= WD; wd++) {
-    // 1. Przyjmij dostawy
-    pipeline = pipeline.filter(del => {
-      if (del.arrivalWd <= wd) { stock += del.qty; return false; }
-      return true;
-    });
-
-    // 2. Zużycie dzienne (zmienne wg demVar, backorder dozwolony)
-    if (wd > 0) {
-      const dailyDemand = p.demVar > 0
-        ? Math.max(0, Math.round(p.d * (1 - p.demVar + 2 * p.demVar * Math.random())))
-        : p.d;
-      stock -= dailyDemand;
-    }
-
-    // 3. Złóż zamówienie co cycle dni:
-    //    qty = targetLevel - stock - transit
-    const transit = pipeline.reduce((s, d) => s + d.qty, 0);
-    if (wd === nextOrderWd) {
-      const shortage = targetLevel - stock - transit;
-      if (shortage > 0) {
-        const qty = calcOrderQty(shortage, moq, ioq);
-        pipeline.push({ arrivalWd: wd + p.lead, qty: qty });
-      }
-      nextOrderWd += p.cycle;
-    }
-
-    const transit2 = pipeline.reduce((s, d) => s + d.qty, 0);
-    labels.push(wd % 5 === 0 ? 'T' + (Math.floor(wd/5)+1) : '');
-    physical.push(Math.round(stock));
-    inTransit.push(Math.round(transit2));
-    available.push(Math.round(stock + transit2));
-  }
-
-  const stockBelowZero   = physical.filter(s => s < 0).length;
-  const stockBelowSafety = physical.filter(s => s < safetyStock).length;
-  const avgPhysical      = Math.round(physical.reduce((a,b) => a+b,0) / physical.length);
-  return { labels, physical, inTransit, available, stockBelowZero, stockBelowSafety, avgPhysical };
+function setLang(l) {
+  lang = l;
+  document.getElementById('btnPL').className = l === 'pl' ? 'active' : '';
+  document.getElementById('btnEN').className = l === 'en' ? 'active' : '';
+  document.documentElement.lang = l;
+  var T = TR[l];
+  document.getElementById('hTitle').textContent       = T.title;
+  document.getElementById('hSubtitle').textContent    = T.subtitle;
+  document.getElementById('secDemand').textContent    = T.secDemand;
+  document.getElementById('lDemand').textContent      = T.lDemand;
+  document.getElementById('lMoq').textContent         = T.lMoq;
+  document.getElementById('lIoq').textContent         = T.lIoq;
+  document.getElementById('lCycle').textContent       = T.lCycle;
+  document.getElementById('noteWeek').textContent     = T.noteWeek;
+  document.getElementById('lLead').textContent        = T.lLead;
+  document.getElementById('secSafety').textContent    = T.secSafety;
+  document.getElementById('lDemVar').textContent      = T.lDemVar;
+  document.getElementById('lQuality').textContent     = T.lQuality;
+  document.getElementById('lComplete').textContent    = T.lComplete;
+  document.getElementById('lDelay').textContent       = T.lDelay;
+  document.getElementById('secEoq').textContent       = T.secEoq;
+  document.getElementById('lOrderCost').textContent   = T.lOrderCost;
+  document.getElementById('lHoldCost').textContent    = T.lHoldCost;
+  document.getElementById('btnPullLabel').textContent = T.btnPull;
+  document.getElementById('btnROPLabel').textContent  = T.btnROP;
+  document.getElementById('legStock').textContent     = T.legStock;
+  document.getElementById('legTransit').textContent   = T.legTransit;
+  document.getElementById('legTotal').textContent     = T.legTotal;
+  document.getElementById('legSafety').textContent    = T.legSafety;
+  document.title = T.title;
+  render();
 }
-
-
-function simulateROP(p, safetyStock, cycleDemand, maxLevel, moq, ioq) {
-  const WD = 120;
-  const physical = [], inTransit = [], available = [], labels = [];
-
-  const rop = Math.round(p.d * p.lead + safetyStock);
-  // EOQ = sqrt(2 * D_roczny * koszt_zamówienia / koszt_utrzymania)
-  // D_roczny = popyt dzienny * 250 dni roboczych
-  const eoq = Math.sqrt(2 * p.d * 250 * p.orderCost / p.holdCost);
-  const orderQty = calcOrderQty(eoq, moq, ioq);
-
-  // In-flight na starcie: dostawy co cycle przez LT, każda orderQty szt
-  let pipeline = [];
-  for (let orderT = -p.lead; orderT <= 0; orderT += p.cycle) {
-    const arrWd = orderT + p.lead;
-    if (arrWd > 0) pipeline.push({ arrivalWd: arrWd, qty: orderQty });
-  }
-
-  let stock = maxLevel;
-  let lastOrderWd = -999;
-
-  for (let wd = 0; wd <= WD; wd++) {
-    // 1. Przyjmij dostawy
-    pipeline = pipeline.filter(del => {
-      if (del.arrivalWd <= wd) { stock += del.qty; return false; }
-      return true;
-    });
-
-    // 2. Zużycie dzienne (backorder dozwolony)
-    if (wd > 0) {
-      const dailyDemand = p.demVar > 0
-        ? Math.max(0, Math.round(p.d * (1 - p.demVar + 2 * p.demVar * Math.random())))
-        : p.d;
-      stock -= dailyDemand;
-    }
-
-    // 3. Złóż zamówienie gdy stock <= ROP, max 1 zamówienie na dobę
-    const transit = pipeline.reduce((s, d) => s + d.qty, 0);
-    if (stock <= rop && wd > lastOrderWd) {
-      pipeline.push({ arrivalWd: wd + p.lead, qty: orderQty });
-      lastOrderWd = wd;
-    }
-
-    const transit2 = pipeline.reduce((s, d) => s + d.qty, 0);
-    labels.push(wd % 5 === 0 ? 'T' + (Math.floor(wd/5)+1) : '');
-    physical.push(Math.round(stock));
-    inTransit.push(Math.round(transit2));
-    available.push(Math.round(stock + transit2));
-  }
-
-  const stockBelowZero   = physical.filter(s => s < 0).length;
-  const stockBelowSafety = physical.filter(s => s < safetyStock).length;
-  const avgPhysical      = Math.round(physical.reduce((a,b) => a+b,0) / physical.length);
-  return { labels, physical, inTransit, available, stockBelowZero, stockBelowSafety, avgPhysical };
-}
-
-
-let currentMode = 'pull';
 
 function setMode(mode) {
   currentMode = mode;
-  const btnPull = document.getElementById('btnPull');
-  const btnROP  = document.getElementById('btnROP');
+  var btnPull = document.getElementById('btnPull');
+  var btnROP  = document.getElementById('btnROP');
   if (mode === 'pull') {
     btnPull.style.background = 'var(--blue)'; btnPull.style.color = '#fff';
     btnROP.style.background  = 'var(--surface2)'; btnROP.style.color = 'var(--muted)';
@@ -295,8 +340,120 @@ function setMode(mode) {
   render();
 }
 
+var $ = function(id){ return document.getElementById(id); };
+
+function getP() {
+  return {
+    d:         +$('demand').value,
+    moq:       +$('moq').value,
+    ioq:       +$('ioq').value,
+    cycle:     +$('cycle').value,
+    lead:      +$('lead').value,
+    demVar:    +$('demVar').value / 100,
+    quality:   +$('quality').value / 100,
+    complete:  +$('complete').value / 100,
+    delay:     +$('delay').value,
+    orderCost: +($('orderCost').value || 100),
+    holdCost:  +($('holdCost').value  || 100)
+  };
+}
+
+function calcOrderQty(needed, moq, ioq) {
+  var base = Math.max(needed, moq);
+  return Math.ceil(base / ioq) * ioq;
+}
+
+function calcSafety(p) {
+  var ss1 = p.cycle * p.d * p.demVar;
+  var ss2 = p.cycle * p.d * (1 - p.quality);
+  var ss3 = p.cycle * p.d * (1 - p.complete);
+  var ss4 = p.delay * p.d;
+  return { ss1: ss1, ss2: ss2, ss3: ss3, ss4: ss4, total: ss1+ss2+ss3+ss4 };
+}
+
+function simulate(p, safetyStock, cycleDemand, maxLevel, moq, ioq) {
+  var WD = 120;
+  var physical = [], inTransit = [], available = [], labels = [];
+  var targetLevel = p.lead * p.d + maxLevel;
+  var pipeline = [];
+  for (var orderT = -p.lead; orderT <= 0; orderT += p.cycle) {
+    var arrWd = orderT + p.lead;
+    if (arrWd > 0) pipeline.push({ arrivalWd: arrWd, qty: Math.round(p.d * p.cycle) });
+  }
+  var stock = maxLevel;
+  var nextOrderWd = p.cycle;
+  for (var wd = 0; wd <= WD; wd++) {
+    pipeline = pipeline.filter(function(del){
+      if (del.arrivalWd <= wd) { stock += del.qty; return false; }
+      return true;
+    });
+    if (wd > 0) {
+      var dd = p.demVar > 0
+        ? Math.max(0, Math.round(p.d * (1 - p.demVar + 2 * p.demVar * Math.random())))
+        : p.d;
+      stock -= dd;
+    }
+    var transit = pipeline.reduce(function(s,d){ return s+d.qty; }, 0);
+    if (wd === nextOrderWd) {
+      var shortage = targetLevel - stock - transit;
+      if (shortage > 0) pipeline.push({ arrivalWd: wd + p.lead, qty: calcOrderQty(shortage, moq, ioq) });
+      nextOrderWd += p.cycle;
+    }
+    var transit2 = pipeline.reduce(function(s,d){ return s+d.qty; }, 0);
+    labels.push(wd % 5 === 0 ? 'T'+(Math.floor(wd/5)+1) : '');
+    physical.push(Math.round(stock));
+    inTransit.push(Math.round(transit2));
+    available.push(Math.round(stock + transit2));
+  }
+  var stockBelowZero   = physical.filter(function(s){ return s < 0; }).length;
+  var stockBelowSafety = physical.filter(function(s){ return s < safetyStock; }).length;
+  var avgPhysical = Math.round(physical.reduce(function(a,b){ return a+b; }, 0) / physical.length);
+  return { labels:labels, physical:physical, inTransit:inTransit, available:available, stockBelowZero:stockBelowZero, stockBelowSafety:stockBelowSafety, avgPhysical:avgPhysical };
+}
+
+function simulateROP(p, safetyStock, cycleDemand, maxLevel, moq, ioq) {
+  var WD = 120;
+  var physical = [], inTransit = [], available = [], labels = [];
+  var rop = Math.round(p.d * p.lead + safetyStock);
+  var eoq = Math.sqrt(2 * p.d * 250 * p.orderCost / p.holdCost);
+  var orderQty = calcOrderQty(eoq, moq, ioq);
+  var pipeline = [];
+  for (var orderT = -p.lead; orderT <= 0; orderT += p.cycle) {
+    var arrWd = orderT + p.lead;
+    if (arrWd > 0) pipeline.push({ arrivalWd: arrWd, qty: orderQty });
+  }
+  var stock = maxLevel;
+  var lastOrderWd = -999;
+  for (var wd = 0; wd <= WD; wd++) {
+    pipeline = pipeline.filter(function(del){
+      if (del.arrivalWd <= wd) { stock += del.qty; return false; }
+      return true;
+    });
+    if (wd > 0) {
+      var dd = p.demVar > 0
+        ? Math.max(0, Math.round(p.d * (1 - p.demVar + 2 * p.demVar * Math.random())))
+        : p.d;
+      stock -= dd;
+    }
+    var transit = pipeline.reduce(function(s,d){ return s+d.qty; }, 0);
+    if (stock <= rop && wd > lastOrderWd) {
+      pipeline.push({ arrivalWd: wd + p.lead, qty: orderQty });
+      lastOrderWd = wd;
+    }
+    var transit2 = pipeline.reduce(function(s,d){ return s+d.qty; }, 0);
+    labels.push(wd % 5 === 0 ? 'T'+(Math.floor(wd/5)+1) : '');
+    physical.push(Math.round(stock));
+    inTransit.push(Math.round(transit2));
+    available.push(Math.round(stock + transit2));
+  }
+  var stockBelowZero   = physical.filter(function(s){ return s < 0; }).length;
+  var stockBelowSafety = physical.filter(function(s){ return s < safetyStock; }).length;
+  var avgPhysical = Math.round(physical.reduce(function(a,b){ return a+b; }, 0) / physical.length);
+  return { labels:labels, physical:physical, inTransit:inTransit, available:available, stockBelowZero:stockBelowZero, stockBelowSafety:stockBelowSafety, avgPhysical:avgPhysical };
+}
+
 function render() {
-  const p = getP();
+  var p = getP();
   $('vDemand').textContent   = p.d;
   $('vMoq').textContent      = p.moq;
   $('vIoq').textContent      = p.ioq;
@@ -305,47 +462,53 @@ function render() {
   $('vDemVar').textContent   = Math.round(p.demVar * 100) + '%';
   $('vQuality').textContent  = Math.round(p.quality * 100) + '%';
   $('vComplete').textContent = Math.round(p.complete * 100) + '%';
-  $('vDelay').textContent     = p.delay;
-  if (document.getElementById('vOrderCost')) $('vOrderCost').textContent = p.orderCost;
-  if (document.getElementById('vHoldCost'))  $('vHoldCost').textContent  = p.holdCost;
+  $('vDelay').textContent    = p.delay;
+  $('vOrderCost').textContent = p.orderCost;
+  $('vHoldCost').textContent  = p.holdCost;
 
-  const ss          = calcSafety(p);
-  const safetyStock = Math.round(ss.total);
-  const cycleDemand = p.d * p.cycle;
-  const orderQty    = calcOrderQty(cycleDemand, p.moq, p.ioq);
-  const excess      = orderQty - cycleDemand;
-  const rop         = Math.round(p.d * p.lead + safetyStock);
-  const maxLevel    = Math.round(cycleDemand + safetyStock);
+  var T = TR[lang];
+  var ss = calcSafety(p);
+  var safetyStock  = Math.round(ss.total);
+  var cycleDemand  = p.d * p.cycle;
+  var orderQty     = calcOrderQty(cycleDemand, p.moq, p.ioq);
+  var excess       = orderQty - cycleDemand;
+  var rop          = Math.round(p.d * p.lead + safetyStock);
+  var maxLevel     = Math.round(cycleDemand + safetyStock);
+  var targetLevel  = p.lead * p.d + maxLevel;
+  var eoq          = Math.round(Math.sqrt(2 * p.d * 250 * p.orderCost / p.holdCost));
+  var eoqRounded   = calcOrderQty(eoq, p.moq, p.ioq);
 
   $('ssBreakdown').innerHTML =
     '<div class="ss-breakdown">' +
-      '<div class="hdr">Rozkład zapasu bezpieczeństwa</div>' +
-      '<div class="ss-row"><span>Odchylenia popytu</span><span class="sv">' + Math.round(ss.ss1) + ' szt</span></div>' +
-      '<div class="ss-row"><span>Braki jakościowe</span><span class="sv">' + Math.round(ss.ss2) + ' szt</span></div>' +
-      '<div class="ss-row"><span>Niekompletne dostawy</span><span class="sv">' + Math.round(ss.ss3) + ' szt</span></div>' +
-      '<div class="ss-row"><span>Opóźnienia dostaw</span><span class="sv">' + Math.round(ss.ss4) + ' szt</span></div>' +
-      '<div class="ss-total"><span>Łącznie</span><span>' + safetyStock + ' szt</span></div>' +
+      '<div class="hdr">' + T.ssBdHdr + '</div>' +
+      '<div class="ss-row"><span>' + T.ssBdDemVar  + '</span><span class="sv">' + Math.round(ss.ss1) + ' pcs'.replace('pcs', lang==='pl'?'szt':'pcs') + '</span></div>' +
+      '<div class="ss-row"><span>' + T.ssBdQuality + '</span><span class="sv">' + Math.round(ss.ss2) + (lang==='pl'?' szt':' pcs') + '</span></div>' +
+      '<div class="ss-row"><span>' + T.ssBdComplete+ '</span><span class="sv">' + Math.round(ss.ss3) + (lang==='pl'?' szt':' pcs') + '</span></div>' +
+      '<div class="ss-row"><span>' + T.ssBdDelay   + '</span><span class="sv">' + Math.round(ss.ss4) + (lang==='pl'?' szt':' pcs') + '</span></div>' +
+      '<div class="ss-total"><span>' + T.ssBdTotal + '</span><span>' + safetyStock + (lang==='pl'?' szt':' pcs') + '</span></div>' +
     '</div>';
 
-  const sim = currentMode === 'rop'
+  var sim = currentMode === 'rop'
     ? simulateROP(p, safetyStock, cycleDemand, maxLevel, p.moq, p.ioq)
     : simulate(p, safetyStock, cycleDemand, maxLevel, p.moq, p.ioq);
-  const daysStock  = Math.round(sim.avgPhysical / p.d);
-  const weeksStock = (daysStock / 5).toFixed(1).replace(/\.0$/, '');
+
+  var unit = lang === 'pl' ? 'szt' : 'pcs';
+  var serviceLevel = Math.round((1 - sim.stockBelowZero / 120) * 100);
 
   $('metrics').innerHTML =
-    '<div class="mc"><div class="lbl">Zapas rotujący</div><div class="num">' + Math.round(cycleDemand) + '<span class="unit">szt</span></div><div class="sub">' + p.cycle + ' dni rob. × ' + p.d + ' szt</div></div>' +
-    '<div class="mc"><div class="lbl">Maks. poziom zapasu w magazynie</div><div class="num">' + maxLevel + '<span class="unit">szt</span></div><div class="sub">rotujący + zap.bezp.</div></div>' +
-    '<div class="mc"><div class="lbl">Partia dostawy</div><div class="num ' + (excess > 0 ? 'warn' : 'ok') + '">' + orderQty + '<span class="unit">szt</span></div><div class="sub">MOQ ' + p.moq + ', IOQ ' + p.ioq + (excess > 0 ? ', nadwyżka +' + Math.round(excess) : '') + '</div></div>' +
-    '<div class="mc"><div class="lbl">Zapas bezpieczeństwa</div><div class="num">' + safetyStock + '<span class="unit">szt</span></div></div>' +
-    '<div class="mc"><div class="lbl">ROP</div><div class="num">' + rop + '<span class="unit">szt</span></div><div class="sub">LT ' + p.lead + ' dni rob. + ZB</div></div>' +
-    '<div class="mc"><div class="lbl">Poziom serwisu</div><div class="num ' + (sim.stockBelowZero > 0 ? 'warn' : 'ok') + '">' + Math.round((1 - sim.stockBelowZero / 120) * 100) + '<span class="unit">%</span></div><div class="sub">backorder: ' + sim.stockBelowZero + ' / 120 dni rob.</div></div>';
+    '<div class="mc"><div class="lbl">' + T.mRotating + '</div><div class="num">' + Math.round(cycleDemand) + '<span class="unit">' + unit + '</span></div><div class="sub">' + T.mRotatingSub(p.cycle, p.d) + '</div></div>' +
+    '<div class="mc"><div class="lbl">' + T.mMaxLevel + '</div><div class="num">' + maxLevel + '<span class="unit">' + unit + '</span></div><div class="sub">' + T.mMaxLevelSub + '</div></div>' +
+    '<div class="mc"><div class="lbl">' + T.mOrderQty + '</div><div class="num ' + (excess > 0 ? 'warn' : 'ok') + '">' + (currentMode==='rop'?eoqRounded:orderQty) + '<span class="unit">' + unit + '</span></div><div class="sub">' + T.mOrderQtySub(p.moq, p.ioq, currentMode==='rop'?0:Math.round(excess)) + '</div></div>' +
+    '<div class="mc"><div class="lbl">' + T.mSafety + '</div><div class="num">' + safetyStock + '<span class="unit">' + unit + '</span></div></div>' +
+    '<div class="mc"><div class="lbl">' + T.mRop + '</div><div class="num">' + rop + '<span class="unit">' + unit + '</span></div><div class="sub">' + T.mRopSub(p.lead) + '</div></div>' +
+    '<div class="mc"><div class="lbl">' + T.mService + '</div><div class="num ' + (sim.stockBelowZero > 0 ? 'warn' : 'ok') + '">' + serviceLevel + '<span class="unit">%</span></div><div class="sub">' + T.mServiceSub(sim.stockBelowZero) + '</div></div>' +
+    (currentMode === 'rop' ? '<div class="mc"><div class="lbl">' + T.mEoq + '</div><div class="num">' + eoq + '<span class="unit">' + unit + '</span></div><div class="sub">' + T.mEoqSub(eoq, eoqRounded) + '</div></div>' : '');
 
-  const ropLine    = Array(sim.labels.length).fill(rop);
-  const safetyLine = Array(sim.labels.length).fill(safetyStock);
-  const isDark     = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const gridColor  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
-  const textColor  = isDark ? '#6b6b67' : '#9b9b96';
+  var ropLine    = Array(sim.labels.length).fill(rop);
+  var safetyLine = Array(sim.labels.length).fill(safetyStock);
+  var isDark     = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var gridColor  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+  var textColor  = isDark ? '#6b6b67' : '#9b9b96';
 
   if (chart) chart.destroy();
   chart = new Chart($('chart'), {
@@ -353,11 +516,11 @@ function render() {
     data: {
       labels: sim.labels,
       datasets: [
-        { label: 'Zapas w magazynie',    data: sim.physical,  borderColor: '#185FA5', backgroundColor: 'rgba(24,95,165,0.08)',  fill: true, borderWidth: 2,   pointRadius: 0, tension: 0, order: 1 },
-        { label: 'Zapas w drodze',       data: sim.inTransit, borderColor: '#5DCAA5', backgroundColor: 'rgba(93,202,165,0.08)', fill: true, borderWidth: 2,   pointRadius: 0, tension: 0, order: 2, borderDash: [4,2] },
-        { label: 'Zapas łącznie',        data: sim.available, borderColor: isDark ? 'rgba(180,178,169,0.45)' : 'rgba(136,135,128,0.40)', backgroundColor: 'rgba(136,135,128,0.05)', fill: true, borderWidth: 1.5, pointRadius: 0, tension: 0, order: 3, borderDash: [2,3] },
-        { label: 'ROP',                  data: ropLine,       borderColor: '#8B0000', fill: false, borderWidth: 1.5, pointRadius: 0, tension: 0, order: 4, borderDash: [5,3] },
-        { label: 'Zapas bezpieczeństwa', data: safetyLine,    borderColor: '#D85A30', fill: false, borderWidth: 1,   pointRadius: 0, tension: 0, order: 5, borderDash: [2,4] }
+        { label: T.legStock,   data: sim.physical,  borderColor: '#185FA5', backgroundColor: 'rgba(24,95,165,0.08)',  fill: true, borderWidth: 2,   pointRadius: 0, tension: 0, order: 1 },
+        { label: T.legTransit, data: sim.inTransit, borderColor: '#5DCAA5', backgroundColor: 'rgba(93,202,165,0.08)', fill: true, borderWidth: 2,   pointRadius: 0, tension: 0, order: 2, borderDash: [4,2] },
+        { label: T.legTotal,   data: sim.available, borderColor: isDark ? 'rgba(180,178,169,0.45)' : 'rgba(136,135,128,0.40)', backgroundColor: 'rgba(136,135,128,0.05)', fill: true, borderWidth: 1.5, pointRadius: 0, tension: 0, order: 3, borderDash: [2,3] },
+        { label: 'ROP',        data: ropLine,       borderColor: '#8B0000', fill: false, borderWidth: 1.5, pointRadius: 0, tension: 0, order: 4, borderDash: [5,3] },
+        { label: T.legSafety,  data: safetyLine,    borderColor: '#D85A30', fill: false, borderWidth: 1,   pointRadius: 0, tension: 0, order: 5, borderDash: [2,4] }
       ]
     },
     options: {
@@ -369,56 +532,28 @@ function render() {
           callbacks: {
             title: function(items) {
               var wd = items[0].dataIndex;
-              var week = Math.floor(wd / 5) + 1;
-              var dayNames = ['Pn','Wt','Sr','Cz','Pt'];
-              return 'Tydz. ' + week + ', ' + dayNames[wd % 5] + ' (dzien roboczy ' + wd + ')';
+              return T.tooltipTitle(Math.floor(wd/5)+1, wd%5, wd);
             },
-            label: function(i) { return i.dataset.label + ': ' + Math.round(i.raw) + ' szt'; }
+            label: function(i) { return i.dataset.label + ': ' + Math.round(i.raw) + T.tooltipUnit; }
           }
         }
       },
       scales: {
-        x: { title: { display: true, text: 'Tydzien (os w dniach roboczych)', color: textColor, font: { size: 12 } }, ticks: { color: textColor, font: { size: 11 }, maxRotation: 0, autoSkip: false }, grid: { color: gridColor } },
-        y: { title: { display: true, text: 'Zapas (szt)', color: textColor, font: { size: 12 } }, ticks: { color: textColor, font: { size: 11 } }, grid: { color: gridColor } }
+        x: { title: { display: true, text: T.xAxis, color: textColor, font: { size: 12 } }, ticks: { color: textColor, font: { size: 11 }, maxRotation: 0, autoSkip: false }, grid: { color: gridColor } },
+        y: { title: { display: true, text: T.yAxis, color: textColor, font: { size: 12 } }, ticks: { color: textColor, font: { size: 11 } }, grid: { color: gridColor } }
       }
     }
   });
 
-  var dominantSS = [
-    { name: 'odchylenia popytu',    v: ss.ss1 },
-    { name: 'braki jakosciowe',     v: ss.ss2 },
-    { name: 'niekompletne dostawy', v: ss.ss3 },
-    { name: 'opoznienia dostaw',    v: ss.ss4 }
-  ].sort(function(a,b){ return b.v - a.v; })[0];
+  var domVariants = T.domVariants;
+  var ssArr = [ss.ss1, ss.ss2, ss.ss3, ss.ss4];
+  var maxIdx = ssArr.indexOf(Math.max.apply(null, ssArr));
+  var dominantName = domVariants[maxIdx];
+  var dominantVal  = Math.round(ssArr[maxIdx]);
 
-  var eoq = Math.round(Math.sqrt(2 * p.d * 250 * p.orderCost / p.holdCost));
-  var eoqRounded = calcOrderQty(eoq, p.moq, p.ioq);
-
-  var linesPull = [
-    'Zapas w magazynie = zapas rotujący (' + Math.round(cycleDemand) + ' szt) + zapas bezpieczeństwa (' + safetyStock + ' szt) = ' + maxLevel + ' szt na poziomie maksymalnym.',
-    'Uzupełnianie do poziomu docelowego: ' + (p.lead * p.d + maxLevel) + ' szt (LT × popyt + max. poziom magazynu). Zamówienie składane co ' + p.cycle + ' dni roboczych.',
-    'Partia dostawy: ' + orderQty + ' szt (zaokrąglona do IOQ ' + p.ioq + ' szt, nie mniej niż MOQ ' + p.moq + ' szt' + (excess > 0 ? ', nadwyżka +' + Math.round(excess) + ' szt ponad zapas rotujący' : '') + ').',
-    safetyStock > 0 ? 'Dominujący składnik zapasu bezpieczeństwa: ' + dominantSS.name + ' (' + Math.round(dominantSS.v) + ' szt).' : null,
-    sim.stockBelowZero > 0
-      ? 'Backorder przez ' + sim.stockBelowZero + ' dni roboczych — zwiększ zapas bezpieczeństwa lub skróć cykl zamawiania.'
-      : sim.stockBelowSafety > 0
-        ? 'Przez ' + sim.stockBelowSafety + ' dni roboczych zapas spada poniżej poziomu bezpieczeństwa.'
-        : 'Zapas bezpieczeństwa utrzymany przez cały horyzont 120 dni roboczych (24 tygodnie).'
-  ].filter(Boolean);
-
-  var linesROP = [
-    'System ROP: zamówienie składane gdy zapas w magazynie ≤ ROP (' + rop + ' szt = LT ' + p.lead + ' dni rob. × ' + p.d + ' szt/dzień + zap.bezp. ' + safetyStock + ' szt).',
-    'Wielkość zamówienia wyznaczona przez EOQ (formuła Wilsona): √(2 × ' + (p.d*250) + ' szt/rok × ' + p.orderCost + ' zł / ' + p.holdCost + ' zł) = ' + eoq + ' szt, zaokrąglona do ' + eoqRounded + ' szt (MOQ/IOQ).',
-    'Zapas w drodze nie jest stały — zależy od momentu złożenia zamówienia (reakcja na bieżące zużycie).',
-    safetyStock > 0 ? 'Dominujący składnik zapasu bezpieczeństwa: ' + dominantSS.name + ' (' + Math.round(dominantSS.v) + ' szt).' : null,
-    sim.stockBelowZero > 0
-      ? 'Backorder przez ' + sim.stockBelowZero + ' dni roboczych — zwiększ zapas bezpieczeństwa lub EOQ.'
-      : sim.stockBelowSafety > 0
-        ? 'Przez ' + sim.stockBelowSafety + ' dni roboczych zapas spada poniżej poziomu bezpieczeństwa.'
-        : 'Zapas bezpieczeństwa utrzymany przez cały horyzont 120 dni roboczych (24 tygodnie).'
-  ].filter(Boolean);
-
-  var lines = currentMode === 'rop' ? linesROP : linesPull;
+  var lines = currentMode === 'rop'
+    ? T.insightROP(rop, p.lead, p.d, safetyStock, p.d*250, p.orderCost, p.holdCost, eoq, eoqRounded, dominantName, dominantVal, sim.stockBelowZero, sim.stockBelowSafety)
+    : T.insightPull(Math.round(cycleDemand), safetyStock, maxLevel, targetLevel, p.cycle, currentMode==='rop'?eoqRounded:orderQty, p.ioq, p.moq, Math.round(excess), dominantName, dominantVal, sim.stockBelowZero, sim.stockBelowSafety);
 
   $('insight').innerHTML = lines.map(function(l){ return '<div>' + l + '</div>'; }).join('');
 }
