@@ -658,18 +658,25 @@ function render() {
 
   // Porównanie wariantów zamawiania
   var dAnnual   = p.d * 250;
-  var qMoq      = calcOrderQty(p.moq, p.moq, p.ioq);
-  var qEoq      = eoqRounded;
-  var qCycle    = calcOrderQty(Math.round(p.d * p.cycle), p.moq, p.ioq);
-  var nMoq      = Math.round(dAnnual / qMoq);
-  var nEoq      = Math.round(dAnnual / qEoq);
-  var nCycle    = Math.round(250 / p.cycle);
+  // Tabela porównawcza — każdy wariant liczony niezależnie (bez wymuszania MOQ na EOQ i Cykl)
+  // MOQ: partia = MOQ zaokrąglone do IOQ
+  var qMoq   = Math.ceil(p.moq / p.ioq) * p.ioq;
+  // EOQ: czysta formuła Wilsona zaokrąglona tylko do IOQ (bez min MOQ)
+  var qEoqPure = Math.ceil(Math.sqrt(2 * dAnnual * p.orderCost / p.holdCost) / p.ioq) * p.ioq;
+  qEoqPure = Math.max(qEoqPure, p.ioq);
+  // Cykl: popyt w cyklu zaokrąglony tylko do IOQ (bez min MOQ)
+  var qCycle = Math.ceil(Math.round(p.d * p.cycle) / p.ioq) * p.ioq;
+  qCycle = Math.max(qCycle, p.ioq);
+  // Liczba dostaw w roku
+  var nMoq   = Math.ceil(dAnnual / qMoq);
+  var nEoq   = Math.ceil(dAnnual / qEoqPure);
+  var nCycle = Math.round(250 / p.cycle);
   var costMoq   = Math.round(nMoq   * p.orderCost);
   var costEoq   = Math.round(nEoq   * p.orderCost);
   var costCycle = Math.round(nCycle * p.orderCost);
   var comparison = T.insightComparison(
     qMoq, nMoq, costMoq,
-    qEoq, nEoq, costEoq,
+    qEoqPure, nEoq, costEoq,
     qCycle, nCycle, costCycle, p.cycle
   );
 
