@@ -69,6 +69,7 @@
   .cmp-table tr:last-child td { border-bottom: none; }
   .cmp-table td:not(:first-child), .cmp-table th:not(:first-child) { text-align: right; }
   .cmp-eoq td { font-weight: 500; color: var(--green); }
+  .cmp-active td { font-weight: 500; color: var(--blue); background: rgba(24,95,165,0.05); }
   .rec-box { padding: 8px 12px; border-radius: var(--radius); font-size: 12px; font-weight: 500; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
   .rec-box.rec-rop  { background: rgba(24,95,165,0.08); border: 0.5px solid rgba(24,95,165,0.3); color: #185FA5; }
   .rec-box.rec-pull { background: rgba(93,202,165,0.10); border: 0.5px solid rgba(93,202,165,0.4); color: #2a7a60; }
@@ -177,7 +178,9 @@
   <div class="card" id="ropParams">
     <div class="sec" id="secEoq">Parametry EOQ (Ekonomiczna wielkość zamówienia)</div>
     <div class="ctrl-row"><label id="lOrderCost">Koszt dostawy (zł)</label><input type="range" id="orderCost" min="10" max="1000" step="10" value="100"><input type="number" class="val" id="vOrderCost" value="100" step="10"></div>
-    <div class="ctrl-row"><label id="lHoldCost">Koszt utrzymania jednostki (zł/rok) = WACC [%] × wartość 1 szt [zł]</label><input type="range" id="holdCost" min="1" max="500" step="1" value="100"><input type="number" class="val" id="vHoldCost" value="100" step="1"></div>
+    <div class="ctrl-row"><label id="lUnitValue">Wartość 1 sztuki (zł)</label><input type="range" id="unitValue" min="1" max="1000" step="1" value="100"><input type="number" class="val" id="vUnitValue" value="100" step="1"></div>
+    <div class="ctrl-row"><label id="lWacc">WACC (%)</label><input type="range" id="wacc" min="1" max="50" step="1" value="20"><input type="number" class="val" id="vWacc" value="20" step="1"><span class="pct">%</span></div>
+    <div class="ctrl-row" style="opacity:0.6; pointer-events:none;"><label id="lHoldCost">Koszt utrzymania jednostki (zł/rok) = WACC [%] × wartość 1 szt [zł]</label><input type="range" id="holdCost" min="1" max="500" step="1" value="20"><input type="number" class="val" id="vHoldCost" value="20" step="1"></div>
   </div>
 
   <div class="card" style="padding: 0.75rem 1.5rem;">
@@ -240,6 +243,8 @@ var TR = {
     lDelay: 'Opóźnienia w dostawach (dni robocze)',
     secEoq: 'Parametry EOQ (Ekonomiczna wielkość zamówienia)',
     lOrderCost: 'Koszt dostawy (zł)',
+    lUnitValue: 'Wartość 1 sztuki (zł)',
+    lWacc: 'WACC (%)',
     lHoldCost: 'Koszt utrzymania jednostki (zł/rok) = WACC [%] × wartość 1 szt [zł]',
     btnPull: 'System ssący (Pull)',
     btnROP: 'System ROP (EOQ)',
@@ -310,17 +315,22 @@ var TR = {
       ].filter(Boolean);
     },
     domVariants: ['odchylenia popytu','braki jakościowe','niekompletne dostawy','opóźnienia dostaw'],
-    insightComparison: function(qMoq,nMoq,cMoq, qEoq,nEoq,cEoq, qCycle,nCycle,cCycle, cycle) {
+    insightComparison: function(qMoq,nMoq,cMoq,hMoq, qEoq,nEoq,cEoq,hEoq, qCycle,nCycle,cCycle,hCycle, cycle, activeVariant) {
+      function row(cls, label, q, n, c, h) {
+        var total = c + h;
+        return '<tr class="' + cls + '"><td>' + label + '</td><td>' + q + '</td><td>' + n + '</td><td>' + c.toLocaleString('pl-PL') + '</td><td>' + h.toLocaleString('pl-PL') + '</td><td>' + total.toLocaleString('pl-PL') + '</td></tr>';
+      }
+      var clsMoq   = activeVariant==='moq'   ? 'cmp-active' : '';
+      var clsEoq   = activeVariant==='eoq'   ? 'cmp-eoq'    : '';
+      var clsCycle = activeVariant==='cycle' ? 'cmp-active' : '';
       var html = '<div style="margin-top:4px;border-top:0.5px solid var(--border2);padding-top:8px;">' +
         '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px;">Porównanie wariantów zamawiania (rocznie, 250 dni rob.)</div>' +
         '<table class="cmp-table">' +
-          '<thead><tr>' +
-            '<th>Wariant</th><th>Partia (szt)</th><th>Dostawy/rok</th><th>Koszt dostaw (zł)</th>' +
-          '</tr></thead>' +
+          '<thead><tr><th>Wariant</th><th>Partia (szt)</th><th>Dostawy/rok</th><th>Koszt dostaw (zł)</th><th>Koszt utrzymania (zł/rok)</th><th>Koszt całkowity (zł/rok)</th></tr></thead>' +
           '<tbody>' +
-            '<tr><td>MOQ (' + qMoq + ' szt)</td><td>' + qMoq + '</td><td>' + nMoq + '</td><td>' + cMoq.toLocaleString('pl-PL') + '</td></tr>' +
-            '<tr class="cmp-eoq"><td>EOQ (optymalne)</td><td>' + qEoq + '</td><td>' + nEoq + '</td><td>' + cEoq.toLocaleString('pl-PL') + '</td></tr>' +
-            '<tr><td>Cykl ' + cycle + ' dni rob.</td><td>' + qCycle + '</td><td>' + nCycle + '</td><td>' + cCycle.toLocaleString('pl-PL') + '</td></tr>' +
+            row(clsMoq,   'MOQ (' + qMoq + ' szt)',       qMoq,   nMoq,   cMoq,   hMoq) +
+            row(clsEoq,   'EOQ (optymalne)',               qEoq,   nEoq,   cEoq,   hEoq) +
+            row(clsCycle, 'Cykl ' + cycle + ' dni rob.',  qCycle, nCycle, cCycle, hCycle) +
           '</tbody>' +
         '</table>' +
         '</div>';
@@ -344,6 +354,8 @@ var TR = {
     lDelay: 'Delivery delays (working days)',
     secEoq: 'EOQ parameters (Economic Order Quantity)',
     lOrderCost: 'Delivery cost (PLN)',
+    lUnitValue: 'Unit value (PLN)',
+    lWacc: 'WACC (%)',
     lHoldCost: 'Unit holding cost (PLN/yr) = WACC [%] × unit value [PLN]',
     btnPull: 'Pull system',
     btnROP: 'ROP system (EOQ)',
@@ -413,17 +425,22 @@ var TR = {
       ].filter(Boolean);
     },
     domVariants: ['demand variability','quality rejects','incomplete deliveries','delivery delays'],
-    insightComparison: function(qMoq,nMoq,cMoq, qEoq,nEoq,cEoq, qCycle,nCycle,cCycle, cycle) {
+    insightComparison: function(qMoq,nMoq,cMoq,hMoq, qEoq,nEoq,cEoq,hEoq, qCycle,nCycle,cCycle,hCycle, cycle, activeVariant) {
+      function row(cls, label, q, n, c, h) {
+        var total = c + h;
+        return '<tr class="' + cls + '"><td>' + label + '</td><td>' + q + '</td><td>' + n + '</td><td>' + c.toLocaleString('en-US') + '</td><td>' + h.toLocaleString('en-US') + '</td><td>' + total.toLocaleString('en-US') + '</td></tr>';
+      }
+      var clsMoq   = activeVariant==='moq'   ? 'cmp-active' : '';
+      var clsEoq   = activeVariant==='eoq'   ? 'cmp-eoq'    : '';
+      var clsCycle = activeVariant==='cycle' ? 'cmp-active' : '';
       var html = '<div style="margin-top:4px;border-top:0.5px solid var(--border2);padding-top:8px;">' +
         '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:6px;">Order variant comparison (annual, 250 working days)</div>' +
         '<table class="cmp-table">' +
-          '<thead><tr>' +
-            '<th>Variant</th><th>Batch (pcs)</th><th>Orders/yr</th><th>Delivery cost (PLN)</th>' +
-          '</tr></thead>' +
+          '<thead><tr><th>Variant</th><th>Batch (pcs)</th><th>Orders/yr</th><th>Delivery cost (PLN)</th><th>Holding cost (PLN/yr)</th><th>Total cost (PLN/yr)</th></tr></thead>' +
           '<tbody>' +
-            '<tr><td>MOQ (' + qMoq + ' pcs)</td><td>' + qMoq + '</td><td>' + nMoq + '</td><td>' + cMoq.toLocaleString('en-US') + '</td></tr>' +
-            '<tr class="cmp-eoq"><td>EOQ (optimal)</td><td>' + qEoq + '</td><td>' + nEoq + '</td><td>' + cEoq.toLocaleString('en-US') + '</td></tr>' +
-            '<tr><td>Cycle ' + cycle + ' days</td><td>' + qCycle + '</td><td>' + nCycle + '</td><td>' + cCycle.toLocaleString('en-US') + '</td></tr>' +
+            row(clsMoq,   'MOQ (' + qMoq + ' pcs)',   qMoq,   nMoq,   cMoq,   hMoq) +
+            row(clsEoq,   'EOQ (optimal)',             qEoq,   nEoq,   cEoq,   hEoq) +
+            row(clsCycle, 'Cycle ' + cycle + ' days', qCycle, nCycle, cCycle, hCycle) +
           '</tbody>' +
         '</table>' +
         '</div>';
@@ -485,8 +502,14 @@ function setMode(mode) {
 var $ = function(id){ return document.getElementById(id); };
 
 function getP() {
-  // Czytaj z number inputów (nie ze sliderów) — slajdery mają ograniczony zakres
-  // a number inputy przyjmują dowolną wartość wpisaną ręcznie
+  var unitValue = +($('vUnitValue').value || 100);
+  var wacc      = +($('vWacc').value      || 20) / 100;
+  var holdCost  = Math.max(0.01, unitValue * wacc);
+  // Zaktualizuj pole holdCost (tylko wyświetlanie)
+  var hEl = $('vHoldCost');
+  if (hEl && document.activeElement !== hEl) hEl.value = Math.round(holdCost * 100) / 100;
+  var hSlider = $('holdCost');
+  if (hSlider) { if (holdCost > +hSlider.max) hSlider.max = holdCost; hSlider.value = holdCost; }
   return {
     d:         +($('vDemand').value   || 20),
     moq:       +($('vMoq').value      || 100),
@@ -498,7 +521,9 @@ function getP() {
     complete:  +($('vComplete').value || 100) / 100,
     delay:     +($('vDelay').value    || 0),
     orderCost: +($('vOrderCost').value || 100),
-    holdCost:  +($('vHoldCost').value  || 100)
+    unitValue: unitValue,
+    wacc:      wacc,
+    holdCost:  holdCost
   };
 }
 
@@ -646,7 +671,6 @@ function render() {
   setNum('vComplete', Math.round(p.complete * 100));
   setNum('vDelay', p.delay);
   setNum('vOrderCost', p.orderCost);
-  setNum('vHoldCost', p.holdCost);
 
   var T = TR[lang];
 
@@ -770,25 +794,25 @@ function render() {
   // Porównanie wariantów zamawiania
   var dAnnual   = p.d * 250;
   // Tabela porównawcza — każdy wariant liczony niezależnie (bez wymuszania MOQ na EOQ i Cykl)
-  // MOQ: partia = MOQ zaokrąglone do IOQ
-  var qMoq   = Math.ceil(p.moq / p.ioq) * p.ioq;
-  // EOQ: czysta formuła Wilsona zaokrąglona tylko do IOQ (bez min MOQ)
-  var qEoqPure = Math.ceil(Math.sqrt(2 * dAnnual * p.orderCost / p.holdCost) / p.ioq) * p.ioq;
-  qEoqPure = Math.max(qEoqPure, p.ioq);
-  // Cykl: popyt w cyklu zaokrąglony tylko do IOQ (bez min MOQ)
-  var qCycle = Math.ceil(Math.round(p.d * p.cycle) / p.ioq) * p.ioq;
-  qCycle = Math.max(qCycle, p.ioq);
-  // Liczba dostaw w roku
-  var nMoq   = Math.ceil(dAnnual / qMoq);
-  var nEoq   = Math.ceil(dAnnual / qEoqPure);
-  var nCycle = Math.round(250 / p.cycle);
+  var qMoq     = Math.ceil(p.moq / p.ioq) * p.ioq;
+  var qEoqPure = Math.max(Math.ceil(Math.sqrt(2 * dAnnual * p.orderCost / p.holdCost) / p.ioq) * p.ioq, p.ioq);
+  var qCycle   = Math.max(Math.ceil(Math.round(p.d * p.cycle) / p.ioq) * p.ioq, p.ioq);
+  var nMoq     = Math.ceil(dAnnual / qMoq);
+  var nEoq     = Math.ceil(dAnnual / qEoqPure);
+  var nCycle   = Math.round(250 / p.cycle);
   var costMoq   = Math.round(nMoq   * p.orderCost);
   var costEoq   = Math.round(nEoq   * p.orderCost);
+  // Średni zapas ≈ partia/2 + ZB; koszt utrzymania = średni zapas × wartość × WACC
+  var hMoq   = Math.round((qMoq   / 2 + safetyStock) * p.unitValue * p.wacc);
+  var hEoq   = Math.round((qEoqPure / 2 + safetyStock) * p.unitValue * p.wacc);
+  var hCycle = Math.round((qCycle  / 2 + safetyStock) * p.unitValue * p.wacc);
+  // Aktywny wariant: Pull = cykl, ROP = EOQ
+  var activeVariant = currentMode === 'rop' ? 'eoq' : 'cycle';
   var costCycle = Math.round(nCycle * p.orderCost);
   var comparison = T.insightComparison(
-    qMoq, nMoq, costMoq,
-    qEoqPure, nEoq, costEoq,
-    qCycle, nCycle, costCycle, p.cycle
+    qMoq, nMoq, costMoq, hMoq,
+    qEoqPure, nEoq, costEoq, hEoq,
+    qCycle, nCycle, costCycle, hCycle, p.cycle, activeVariant
   );
 
   var lines = currentMode === 'rop'
@@ -860,7 +884,7 @@ function printReport() {
 
 // Synchronizacja slidera (range) z polem liczbowym (number) — pole liczbowe
 // pozwala wpisać wartość poza zakresem slidera; slider automatycznie się rozszerza.
-var SLIDER_IDS = ['demand','moq','ioq','cycle','lead','demVar','quality','complete','delay','orderCost','holdCost'];
+var SLIDER_IDS = ['demand','moq','ioq','cycle','lead','demVar','quality','complete','delay','orderCost','unitValue','wacc'];
 
 function capId(id){ return id.charAt(0).toUpperCase() + id.slice(1); }
 
