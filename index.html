@@ -38,7 +38,12 @@
   .ctrl-row input[type=range] { flex: 1; height: 4px; -webkit-appearance: none; appearance: none; background: var(--border); border-radius: 2px; outline: none; cursor: pointer; }
   .ctrl-row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--blue); cursor: pointer; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--blue); }
   .ctrl-row input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--blue); cursor: pointer; border: 2px solid var(--surface); }
-  .ctrl-row .val { font-size: 13px; font-weight: 500; min-width: 52px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+  .ctrl-row .val { font-size: 13px; font-weight: 500; min-width: 52px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums;
+    border: 0.5px solid var(--border); border-radius: 5px; background: var(--surface); padding: 3px 6px; -moz-appearance: textfield; }
+  .ctrl-row .val::-webkit-outer-spin-button, .ctrl-row .val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .ctrl-row .val:focus { outline: none; border-color: var(--blue); }
+  .ctrl-row .pct { font-size: 13px; color: var(--muted); margin-left: -6px; }
+  .val-wrap { display: flex; align-items: center; gap: 2px; }
   .note { font-size: 11px; color: var(--hint); margin: -6px 0 10px 252px; }
   .ss-breakdown { background: var(--surface2); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; }
   .ss-breakdown .hdr { grid-column: 1/-1; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
@@ -65,6 +70,27 @@
   .cmp-table td:not(:first-child), .cmp-table th:not(:first-child) { text-align: right; }
   .cmp-eoq td { font-weight: 500; color: var(--green); }
   footer { margin-top: 2rem; text-align: center; font-size: 11px; color: var(--hint); }
+
+  .print-btn { display: flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 12px; font-family: inherit;
+    cursor: pointer; border: 0.5px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    color: var(--muted); font-weight: 500; transition: background .15s, color .15s; }
+  .print-btn:hover { background: var(--surface2); color: var(--text); }
+  .print-btn svg { flex-shrink: 0; }
+
+  #printReport { display: none; }
+  @media print {
+    body * { visibility: hidden; }
+    #printReport, #printReport * { visibility: visible; }
+    #printReport { display: block; position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
+    .no-print { display: none !important; }
+    .print-section { page-break-inside: avoid; margin-bottom: 28px; }
+    .print-header { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+    .print-header h1 { font-size: 18px; font-weight: 600; }
+    .print-header .print-date { font-size: 11px; color: #666; margin-top: 2px; }
+    .print-section h2 { font-size: 15px; font-weight: 600; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
+    .print-chart { width: 100%; max-width: 700px; display: block; margin: 10px 0; }
+    .print-legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: #555; margin-bottom: 6px; }
+  }
   @media (max-width: 600px) {
     .ctrl-row label { min-width: 160px; font-size: 12px; }
     .note { margin-left: 172px; }
@@ -90,26 +116,26 @@
 
   <div class="card">
     <div class="sec" id="secDemand">Parametry popytu i zamawiania</div>
-    <div class="ctrl-row"><label id="lDemand">Popyt dzienny (szt/dzień roboczy)</label><input type="range" id="demand" min="5" max="100" step="1" value="20"><span class="val" id="vDemand">20</span></div>
-    <div class="ctrl-row"><label id="lMoq">MOQ – minimalna partia (szt)</label><input type="range" id="moq" min="10" max="600" step="10" value="100"><span class="val" id="vMoq">100</span></div>
-    <div class="ctrl-row"><label id="lIoq">IOQ – przyrost partii (szt)</label><input type="range" id="ioq" min="1" max="200" step="1" value="10"><span class="val" id="vIoq">10</span></div>
-    <div class="ctrl-row"><label id="lCycle">Cykl zamawiania (dni robocze)</label><input type="range" id="cycle" min="1" max="30" step="1" value="5"><span class="val" id="vCycle">5</span></div>
+    <div class="ctrl-row"><label id="lDemand">Popyt dzienny (szt/dzień roboczy)</label><input type="range" id="demand" min="5" max="100" step="1" value="20"><input type="number" class="val" id="vDemand" value="20" step="1"></div>
+    <div class="ctrl-row"><label id="lMoq">MOQ – minimalna partia (szt)</label><input type="range" id="moq" min="10" max="600" step="10" value="100"><input type="number" class="val" id="vMoq" value="100" step="10"></div>
+    <div class="ctrl-row"><label id="lIoq">IOQ – przyrost partii (szt)</label><input type="range" id="ioq" min="1" max="200" step="1" value="10"><input type="number" class="val" id="vIoq" value="10" step="1"></div>
+    <div class="ctrl-row"><label id="lCycle">Cykl zamawiania (dni robocze)</label><input type="range" id="cycle" min="1" max="30" step="1" value="5"><input type="number" class="val" id="vCycle" value="5" step="1"></div>
     <div class="note" id="noteWeek">1 tydzień = 5 dni roboczych</div>
-    <div class="ctrl-row"><label id="lLead">Lead time dostaw (dni robocze)</label><input type="range" id="lead" min="1" max="30" step="1" value="10"><span class="val" id="vLead">10</span></div>
+    <div class="ctrl-row"><label id="lLead">Lead time dostaw (dni robocze)</label><input type="range" id="lead" min="1" max="30" step="1" value="10"><input type="number" class="val" id="vLead" value="10" step="1"></div>
   </div>
 
   <div class="card">
     <div class="sec" id="secSafety">Składniki zapasu bezpieczeństwa</div>
-    <div class="ctrl-row"><label id="lDemVar">Odchylenia w zapotrzebowaniu (%)</label><input type="range" id="demVar" min="0" max="500" step="10" value="10"><span class="val" id="vDemVar">10%</span></div>
-    <div class="ctrl-row"><label id="lQuality">Poziom jakości dostaw (%)</label><input type="range" id="quality" min="50" max="100" step="1" value="95"><span class="val" id="vQuality">95%</span></div>
-    <div class="ctrl-row"><label id="lComplete">Poziom kompletności dostaw (%)</label><input type="range" id="complete" min="50" max="100" step="1" value="97"><span class="val" id="vComplete">97%</span></div>
-    <div class="ctrl-row"><label id="lDelay">Opóźnienia w dostawach (dni robocze)</label><input type="range" id="delay" min="0" max="10" step="1" value="2"><span class="val" id="vDelay">2</span></div>
+    <div class="ctrl-row"><label id="lDemVar">Odchylenia w zapotrzebowaniu (%)</label><input type="range" id="demVar" min="0" max="500" step="10" value="10"><span class="val-wrap"><input type="number" class="val" id="vDemVar" value="10" step="10"><span class="pct">%</span></span></div>
+    <div class="ctrl-row"><label id="lQuality">Poziom jakości dostaw (%)</label><input type="range" id="quality" min="50" max="100" step="1" value="95"><span class="val-wrap"><input type="number" class="val" id="vQuality" value="95" step="1"><span class="pct">%</span></span></div>
+    <div class="ctrl-row"><label id="lComplete">Poziom kompletności dostaw (%)</label><input type="range" id="complete" min="50" max="100" step="1" value="97"><span class="val-wrap"><input type="number" class="val" id="vComplete" value="97" step="1"><span class="pct">%</span></span></div>
+    <div class="ctrl-row"><label id="lDelay">Opóźnienia w dostawach (dni robocze)</label><input type="range" id="delay" min="0" max="10" step="1" value="2"><input type="number" class="val" id="vDelay" value="2" step="1"></div>
   </div>
 
   <div class="card" id="ropParams">
     <div class="sec" id="secEoq">Parametry EOQ (Ekonomiczna wielkość zamówienia)</div>
-    <div class="ctrl-row"><label id="lOrderCost">Koszt dostawy (zł)</label><input type="range" id="orderCost" min="10" max="1000" step="10" value="100"><span class="val" id="vOrderCost">100</span></div>
-    <div class="ctrl-row"><label id="lHoldCost">Koszt utrzymania jednostki (zł/rok)</label><input type="range" id="holdCost" min="1" max="500" step="1" value="100"><span class="val" id="vHoldCost">100</span></div>
+    <div class="ctrl-row"><label id="lOrderCost">Koszt dostawy (zł)</label><input type="range" id="orderCost" min="10" max="1000" step="10" value="100"><input type="number" class="val" id="vOrderCost" value="100" step="10"></div>
+    <div class="ctrl-row"><label id="lHoldCost">Koszt utrzymania jednostki (zł/rok)</label><input type="range" id="holdCost" min="1" max="500" step="1" value="100"><input type="number" class="val" id="vHoldCost" value="100" step="1"></div>
   </div>
 
   <div class="card" style="padding: 0.75rem 1.5rem;">
@@ -127,10 +153,21 @@
     </div>
   </div>
 
+  <div style="display:flex; justify-content:flex-end; margin-bottom: 1rem;" class="no-print">
+    <button class="print-btn" onclick="printReport()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+        <rect x="6" y="14" width="12" height="8"></rect>
+      </svg>
+      <span id="btnPrintLabel">Drukuj raport</span>
+    </button>
+  </div>
+
   <div class="card">
     <div id="ssBreakdown"></div>
     <div class="metrics-grid" id="metrics"></div>
-    <div class="legend">
+    <div class="legend" id="legendBox">
       <span><svg width="20" height="12"><rect x="0" y="4" width="20" height="4" rx="1" fill="#185FA5"/></svg><span id="legStock">Zapas w magazynie</span></span>
       <span><svg width="20" height="12"><line x1="0" y1="6" x2="20" y2="6" stroke="#5DCAA5" stroke-width="2.5" stroke-dasharray="4,2"/></svg><span id="legTransit">Zapas w drodze</span></span>
       <span><svg width="20" height="12"><rect x="0" y="4" width="20" height="4" rx="1" fill="#888780" opacity=".35"/></svg><span id="legTotal">Zapas łącznie</span></span>
@@ -146,6 +183,8 @@
 
   <footer>LeanQ Team sp. z o.o.</footer>
 </div>
+
+<div id="printReport"></div>
 
 <script>
 var lang = 'pl';
@@ -173,6 +212,8 @@ var TR = {
     lHoldCost: 'Koszt utrzymania jednostki (zł/rok)',
     btnPull: 'System ssący (Pull)',
     btnROP: 'System ROP (EOQ)',
+    btnPrint: 'Drukuj raport',
+    printDateLabel: 'Wygenerowano',
     legStock: 'Zapas w magazynie',
     legTransit: 'Zapas w drodze',
     legTotal: 'Zapas łącznie',
@@ -272,6 +313,8 @@ var TR = {
     lHoldCost: 'Unit holding cost (PLN/year)',
     btnPull: 'Pull system',
     btnROP: 'ROP system (EOQ)',
+    btnPrint: 'Print report',
+    printDateLabel: 'Generated',
     legStock: 'Stock on hand',
     legTransit: 'Stock in transit',
     legTotal: 'Total stock',
@@ -379,6 +422,7 @@ function setLang(l) {
   document.getElementById('lHoldCost').textContent    = T.lHoldCost;
   document.getElementById('btnPullLabel').textContent = T.btnPull;
   document.getElementById('btnROPLabel').textContent  = T.btnROP;
+  document.getElementById('btnPrintLabel').textContent = T.btnPrint;
   document.getElementById('legStock').textContent     = T.legStock;
   document.getElementById('legTransit').textContent   = T.legTransit;
   document.getElementById('legTotal').textContent     = T.legTotal;
@@ -541,17 +585,23 @@ function simulateROP(p, safetyStock, cycleDemand, maxLevel, moq, ioq) {
 
 function render() {
   var p = getP();
-  $('vDemand').textContent   = p.d;
-  $('vMoq').textContent      = p.moq;
-  $('vIoq').textContent      = p.ioq;
-  $('vCycle').textContent    = p.cycle;
-  $('vLead').textContent     = p.lead;
-  $('vDemVar').textContent   = Math.round(p.demVar * 100) + '%';
-  $('vQuality').textContent  = Math.round(p.quality * 100) + '%';
-  $('vComplete').textContent = Math.round(p.complete * 100) + '%';
-  $('vDelay').textContent    = p.delay;
-  $('vOrderCost').textContent = p.orderCost;
-  $('vHoldCost').textContent  = p.holdCost;
+  // Aktualizuj pola liczbowe, ale nie nadpisuj pola, w którym użytkownik właśnie pisze
+  var active = document.activeElement;
+  function setNum(id, val){
+    var el = $(id);
+    if (el && el !== active) el.value = val;
+  }
+  setNum('vDemand', p.d);
+  setNum('vMoq', p.moq);
+  setNum('vIoq', p.ioq);
+  setNum('vCycle', p.cycle);
+  setNum('vLead', p.lead);
+  setNum('vDemVar', Math.round(p.demVar * 100));
+  setNum('vQuality', Math.round(p.quality * 100));
+  setNum('vComplete', Math.round(p.complete * 100));
+  setNum('vDelay', p.delay);
+  setNum('vOrderCost', p.orderCost);
+  setNum('vHoldCost', p.holdCost);
 
   var T = TR[lang];
   var ss = calcSafety(p);
@@ -693,8 +743,83 @@ function render() {
   $('insight').innerHTML = lines.map(function(l){ return l && l.__html ? l.__html : '<div>' + l + '</div>'; }).join('');
 }
 
-['demand','moq','ioq','cycle','lead','demVar','quality','complete','delay','orderCost','holdCost']
-  .forEach(function(id){ $(id).addEventListener('input', render); });
+function printReport() {
+  var originalMode = currentMode;
+  var sections = {};
+
+  ['pull', 'rop'].forEach(function(mode){
+    currentMode = mode;
+    render();
+    sections[mode] = {
+      ssHTML:       $('ssBreakdown').innerHTML,
+      metricsHTML:  $('metrics').innerHTML,
+      legendHTML:   $('legendBox').innerHTML,
+      insightHTML:  $('insight').innerHTML,
+      chartImg:     chart.toBase64Image()
+    };
+  });
+
+  currentMode = originalMode;
+  render();
+
+  var T = TR[lang];
+  var dateStr = new Date().toLocaleDateString(lang === 'pl' ? 'pl-PL' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  var html = '<div class="print-header"><h1>' + T.title + '</h1><div class="print-date">' + T.printDateLabel + ': ' + dateStr + '</div></div>';
+
+  ['pull', 'rop'].forEach(function(mode){
+    var label = mode === 'pull' ? T.btnPull : T.btnROP;
+    var s = sections[mode];
+    html += '<div class="print-section">' +
+      '<h2>' + label + '</h2>' +
+      s.ssHTML +
+      '<div class="metrics-grid">' + s.metricsHTML + '</div>' +
+      '<div class="print-legend">' + s.legendHTML + '</div>' +
+      '<img class="print-chart" src="' + s.chartImg + '">' +
+      '<div class="insight">' + s.insightHTML + '</div>' +
+    '</div>';
+  });
+
+  $('printReport').innerHTML = html;
+  window.print();
+}
+
+// Synchronizacja slidera (range) z polem liczbowym (number) — pole liczbowe
+// pozwala wpisać wartość poza zakresem slidera; slider automatycznie się rozszerza.
+var SLIDER_IDS = ['demand','moq','ioq','cycle','lead','demVar','quality','complete','delay','orderCost','holdCost'];
+
+function capId(id){ return id.charAt(0).toUpperCase() + id.slice(1); }
+
+SLIDER_IDS.forEach(function(id){
+  var slider = $(id);
+  var numInput = $('v' + capId(id));
+  if (!slider || !numInput) return;
+
+  // Slider -> number input
+  slider.addEventListener('input', function(){
+    numInput.value = slider.value;
+    render();
+  });
+
+  // Number input -> slider (z rozszerzaniem zakresu)
+  numInput.addEventListener('input', function(){
+    var v = parseFloat(numInput.value);
+    if (isNaN(v)) return;
+    var min = parseFloat(slider.min);
+    var max = parseFloat(slider.max);
+    if (v > max) slider.max = v;
+    if (v < min) slider.min = v;
+    slider.value = v;
+    render();
+  });
+
+  // Po opuszczeniu pola — domknij ewentualne braki (np. puste pole)
+  numInput.addEventListener('blur', function(){
+    if (numInput.value === '' || isNaN(parseFloat(numInput.value))) {
+      numInput.value = slider.value;
+    }
+  });
+});
 
 render();
 </script>
