@@ -69,6 +69,10 @@
   .cmp-table tr:last-child td { border-bottom: none; }
   .cmp-table td:not(:first-child), .cmp-table th:not(:first-child) { text-align: right; }
   .cmp-eoq td { font-weight: 500; color: var(--green); }
+  .rec-box { padding: 8px 12px; border-radius: var(--radius); font-size: 12px; font-weight: 500; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .rec-box.rec-rop  { background: rgba(24,95,165,0.08); border: 0.5px solid rgba(24,95,165,0.3); color: #185FA5; }
+  .rec-box.rec-pull { background: rgba(93,202,165,0.10); border: 0.5px solid rgba(93,202,165,0.4); color: #2a7a60; }
+  .rec-box svg { flex-shrink: 0; }
   footer { margin-top: 2rem; text-align: center; font-size: 11px; color: var(--hint); }
 
   .print-btn { display: flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 12px; font-family: inherit;
@@ -668,6 +672,11 @@ function render() {
   var eoqRounded   = calcOrderQty(eoq, p.moq, p.ioq);
 
   $('ssBreakdown').innerHTML =
+    (currentMode === 'pull'
+      ? (cycleDemandRaw < p.moq
+          ? '<div class="rec-box rec-rop"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' + (lang==='pl' ? 'Rekomendacja: użyj systemu ROP — cykl odnawia zapas na ' + p.cycle + ' dni × ' + p.d + ' szt/dzień = ' + cycleDemandRaw + ' szt < MOQ ' + p.moq + ' szt. Cykl zamawiania nie pokrywa jednej partii minimalnej.' : 'Recommendation: use ROP system — order cycle covers ' + p.cycle + ' days × ' + p.d + ' pcs/day = ' + cycleDemandRaw + ' pcs < MOQ ' + p.moq + ' pcs. Order cycle does not cover one minimum batch.') + '</div>'
+          : '')
+      : '') +
     '<div class="ss-breakdown">' +
       '<div class="hdr">' + T.ssBdHdr + '</div>' +
       '<div class="ss-row"><span>' + T.ssBdDemVar  + '</span><span class="sv">' + Math.round(ss.ss1) + ' pcs'.replace('pcs', lang==='pl'?'szt':'pcs') + '</span></div>' +
