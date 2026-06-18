@@ -173,7 +173,7 @@
   <div class="card" id="ropParams">
     <div class="sec" id="secEoq">Parametry EOQ (Ekonomiczna wielkość zamówienia)</div>
     <div class="ctrl-row"><label id="lOrderCost">Koszt dostawy (zł)</label><input type="range" id="orderCost" min="10" max="1000" step="10" value="100"><input type="number" class="val" id="vOrderCost" value="100" step="10"></div>
-    <div class="ctrl-row"><label id="lHoldCost">Koszt utrzymania jednostki (zł/rok)</label><input type="range" id="holdCost" min="1" max="500" step="1" value="100"><input type="number" class="val" id="vHoldCost" value="100" step="1"></div>
+    <div class="ctrl-row"><label id="lHoldCost">Koszt utrzymania jednostki (zł/rok) = WACC [%] × wartość 1 szt [zł]</label><input type="range" id="holdCost" min="1" max="500" step="1" value="100"><input type="number" class="val" id="vHoldCost" value="100" step="1"></div>
   </div>
 
   <div class="card" style="padding: 0.75rem 1.5rem;">
@@ -236,7 +236,7 @@ var TR = {
     lDelay: 'Opóźnienia w dostawach (dni robocze)',
     secEoq: 'Parametry EOQ (Ekonomiczna wielkość zamówienia)',
     lOrderCost: 'Koszt dostawy (zł)',
-    lHoldCost: 'Koszt utrzymania jednostki (zł/rok)',
+    lHoldCost: 'Koszt utrzymania jednostki (zł/rok) = WACC [%] × wartość 1 szt [zł]',
     btnPull: 'System ssący (Pull)',
     btnROP: 'System ROP (EOQ)',
     btnPrint: 'Drukuj raport',
@@ -254,7 +254,8 @@ var TR = {
     ssBdTotal: 'Łącznie',
     mRotating: 'Zapas rotujący',
     mRotatingRop: 'Zapas rotujący / Zapas na LT dostawy',
-    mRotatingSub: function(c,d){ return c + ' dni rob. \xd7 ' + d + ' szt'; },
+    mRotatingRopSub: function(lt,d){ return 'LT ' + lt + ' dni rob. × ' + d + ' szt'; },
+    mRotatingSub: function(c,d,orderQty){ return 'max(' + c + ' dni × ' + d + ' szt, partia ' + orderQty + ' szt)'; },
     mMaxLevel: 'Maks. poziom zapasu w magazynie',
     mMaxLevelSub: 'rotujący + zap.bezp.',
     mOrderQty: 'Partia dostawy',
@@ -274,7 +275,7 @@ var TR = {
     yAxis: 'Zapas (szt)',
     tooltipTitle: function(week, day, wd){ var d=['Pn','Wt','Śr','Cz','Pt']; return 'Tydz. '+week+', '+d[day]+' (dzień roboczy '+wd+')'; },
     tooltipUnit: ' szt',
-    insightPull: function(cycleDemand, safetyStock, maxLevel, targetLevel, cycle, orderQty, ioq, moq, excess, dominantName, dominantVal, belowZero, belowSafety, avgStock, p_d, lead, d_val, maxPhysical, maxAvailable){
+    insightPull: function(cycleDemand, safetyStock, maxLevel, targetLevel, cycle, orderQty, ioq, moq, excess, dominantName, dominantVal, belowZero, belowSafety, avgStock, p_d, lead, d_val, maxPhysical, maxAvailable, demVar, quality, complete){
       return [
         'Zapas w magazynie = zapas rotujący (' + cycleDemand + ' szt) + zapas bezpieczeństwa (' + safetyStock + ' szt) = ' + maxLevel + ' szt na poziomie maksymalnym.',
         'Zapas całkowity = LT (' + lead + ' dni rob.) × popyt (' + d_val + ' szt) + maks. poziom magazynu (' + maxLevel + ' szt) = ' + targetLevel + ' szt — poziom do którego uzupełniamy w każdym cyklu.',
@@ -282,6 +283,7 @@ var TR = {
         (maxAvailable > targetLevel ? 'Zapas łącznie (magazyn + w drodze) przekroczył zapas całkowity (' + maxAvailable + ' > ' + targetLevel + ' szt). Przy kolejnym zamówieniu system uwzględni nadwyżkę — partia będzie mniejsza lub zamówienie nie zostanie złożone.' : null),
         'Uzupełnianie do poziomu docelowego: ' + targetLevel + ' szt (LT × popyt + maks. poziom magazynu). Zamówienie składane co ' + cycle + ' dni roboczych.',
         'Partia dostawy: ' + orderQty + ' szt (zaokrąglona do IOQ ' + ioq + ' szt, nie mniej niż MOQ ' + moq + ' szt' + (excess > 0 ? ', nadwyżka +' + excess + ' szt ponad zapas rotujący' : '') + ').',
+        safetyStock > 0 ? 'Obliczenie zapasu bezpieczeństwa: odchylenia popytu = zapas rotujący (' + cycleDemand + ' szt) × ' + Math.round(demVar*100) + '% = ' + Math.round(cycleDemand*demVar) + ' szt; niekompletne dostawy = ' + cycleDemand + ' × (1−' + Math.round((1-complete)*100)/100 + ') = ' + Math.round(cycleDemand*(1-(complete||1))) + ' szt; braki jakościowe = ' + cycleDemand + ' × (1−' + Math.round((1-quality)*100)/100 + ') = ' + Math.round(cycleDemand*(1-(quality||1))) + ' szt.' : null,
         safetyStock > 0 ? 'Dominujący składnik zapasu bezpieczeństwa: ' + dominantName + ' (' + dominantVal + ' szt).' : null,
         belowZero > 0 ? 'Backorder przez ' + belowZero + ' dni roboczych — zwiększ zapas bezpieczeństwa lub skróć cykl zamawiania.'
           : belowSafety > 0 ? 'Przez ' + belowSafety + ' dni roboczych zapas spada poniżej poziomu bezpieczeństwa.'
@@ -289,12 +291,13 @@ var TR = {
         'Średni zapas w magazynie: ' + avgStock + ' szt (' + (p_d > 0 ? Math.round(avgStock / p_d) : 0) + ' dni rob.).'
       ].filter(Boolean);
     },
-    insightROP: function(rop, lead, d, safetyStock, dAnnual, orderCost, holdCost, eoq, eoqRounded, dominantName, dominantVal, belowZero, belowSafety, avgStock, p_d){
+    insightROP: function(rop, lead, d, safetyStock, dAnnual, orderCost, holdCost, eoq, eoqRounded, dominantName, dominantVal, belowZero, belowSafety, avgStock, p_d, cycleDemand, demVar, quality, complete){
       return [
         'System ROP: zamówienie składane gdy zapas w magazynie + zapas w drodze ≤ ROP (' + rop + ' szt = LT ' + lead + ' dni rob. × ' + d + ' szt/dzień + zap.bezp. ' + safetyStock + ' szt).',
         'Wielkość zamówienia (formuła SAP HB): ROP + prognoza_LT − zapas w magazynie − zapas w drodze, gdzie prognoza_LT = max(LT × popyt, EOQ) = max(' + lead*d + ', ' + eoq + ') szt.',
         'EOQ (formuła Wilsona): √(2 × ' + dAnnual + ' szt/rok × ' + orderCost + ' zł / ' + holdCost + ' zł) = ' + eoq + ' szt, partia po MOQ/IOQ: ' + eoqRounded + ' szt.',
         'Zapas w drodze nie jest stały — przy szybszym zużyciu ROP osiągany wcześniej i składane jest kolejne zamówienie, nawet gdy poprzednie jest jeszcze w drodze.',
+        safetyStock > 0 ? 'Obliczenie zapasu bezpieczeństwa: odchylenia popytu = zapas rotujący (' + cycleDemand + ' szt) × ' + Math.round(demVar*100) + '% = ' + Math.round(cycleDemand*demVar) + ' szt; niekompletne dostawy = ' + cycleDemand + ' × (1−' + Math.round((1-complete)*100)/100 + ') = ' + Math.round(cycleDemand*(1-(complete||1))) + ' szt; braki jakościowe = ' + cycleDemand + ' × (1−' + Math.round((1-quality)*100)/100 + ') = ' + Math.round(cycleDemand*(1-(quality||1))) + ' szt.' : null,
         safetyStock > 0 ? 'Dominujący składnik zapasu bezpieczeństwa: ' + dominantName + ' (' + dominantVal + ' szt).' : null,
         belowZero > 0 ? 'Backorder przez ' + belowZero + ' dni roboczych — zwiększ zapas bezpieczeństwa lub EOQ.'
           : belowSafety > 0 ? 'Przez ' + belowSafety + ' dni roboczych zapas spada poniżej poziomu bezpieczeństwa.'
@@ -337,7 +340,7 @@ var TR = {
     lDelay: 'Delivery delays (working days)',
     secEoq: 'EOQ parameters (Economic Order Quantity)',
     lOrderCost: 'Delivery cost (PLN)',
-    lHoldCost: 'Unit holding cost (PLN/year)',
+    lHoldCost: 'Unit holding cost (PLN/yr) = WACC [%] × unit value [PLN]',
     btnPull: 'Pull system',
     btnROP: 'ROP system (EOQ)',
     btnPrint: 'Print report',
@@ -355,7 +358,8 @@ var TR = {
     ssBdTotal: 'Total',
     mRotating: 'Cycle stock',
     mRotatingRop: 'Cycle stock / LT demand',
-    mRotatingSub: function(c,d){ return c + ' days \xd7 ' + d + ' pcs'; },
+    mRotatingRopSub: function(lt,d){ return 'LT ' + lt + ' days × ' + d + ' pcs'; },
+    mRotatingSub: function(c,d,orderQty){ return 'max(' + c + ' days × ' + d + ' pcs, batch ' + orderQty + ' pcs)'; },
     mMaxLevel: 'Max. stock level',
     mMaxLevelSub: 'cycle + safety stock',
     mOrderQty: 'Order quantity',
@@ -375,13 +379,14 @@ var TR = {
     yAxis: 'Stock (pcs)',
     tooltipTitle: function(week,day,wd){ var d=['Mo','Tu','We','Th','Fr']; return 'Week '+week+', '+d[day]+' (working day '+wd+')'; },
     tooltipUnit: ' pcs',
-    insightPull: function(cycleDemand, safetyStock, maxLevel, targetLevel, cycle, orderQty, ioq, moq, excess, dominantName, dominantVal, belowZero, belowSafety, avgStock, p_d, lead, d_val, maxPhysical, maxAvailable){
+    insightPull: function(cycleDemand, safetyStock, maxLevel, targetLevel, cycle, orderQty, ioq, moq, excess, dominantName, dominantVal, belowZero, belowSafety, avgStock, p_d, lead, d_val, maxPhysical, maxAvailable, demVar, quality, complete){
       return [
         'Stock on hand = cycle stock (' + cycleDemand + ' pcs) + safety stock (' + safetyStock + ' pcs) = ' + maxLevel + ' pcs at maximum level.',
         'Target stock = LT (' + lead + ' days) × demand (' + d_val + ' pcs) + max stock level (' + maxLevel + ' pcs) = ' + targetLevel + ' pcs — replenishment target each cycle.',
         (maxPhysical > targetLevel ? 'Note: stock on hand exceeded target stock (' + maxPhysical + ' > ' + targetLevel + ' pcs). This is caused by MOQ/IOQ rounding — the delivery was larger than needed to reach target stock.' : null),
         'Replenishment to target level: ' + targetLevel + ' pcs (LT × demand + max stock level). Order placed every ' + cycle + ' working days.',
         'Order quantity: ' + orderQty + ' pcs (rounded up to IOQ ' + ioq + ' pcs, min MOQ ' + moq + ' pcs' + (excess > 0 ? ', surplus +' + excess + ' pcs over cycle stock' : '') + ').',
+        safetyStock > 0 ? 'Safety stock calculation: demand variability = cycle stock (' + cycleDemand + ' pcs) × ' + Math.round(demVar*100) + '% = ' + Math.round(cycleDemand*demVar) + ' pcs; incomplete deliveries = ' + cycleDemand + ' × (1−' + Math.round((1-complete)*100)/100 + ') = ' + Math.round(cycleDemand*(1-(complete||1))) + ' pcs; quality rejects = ' + cycleDemand + ' × (1−' + Math.round((1-quality)*100)/100 + ') = ' + Math.round(cycleDemand*(1-(quality||1))) + ' pcs.' : null,
         safetyStock > 0 ? 'Dominant safety stock component: ' + dominantName + ' (' + dominantVal + ' pcs).' : null,
         belowZero > 0 ? 'Backorder for ' + belowZero + ' working days — increase safety stock or shorten order cycle.'
           : belowSafety > 0 ? 'Stock falls below safety level for ' + belowSafety + ' working days.'
@@ -389,12 +394,13 @@ var TR = {
         'Average stock on hand: ' + avgStock + ' pcs (' + (p_d > 0 ? Math.round(avgStock / p_d) : 0) + ' working days).'
       ].filter(Boolean);
     },
-    insightROP: function(rop, lead, d, safetyStock, dAnnual, orderCost, holdCost, eoq, eoqRounded, dominantName, dominantVal, belowZero, belowSafety, avgStock, p_d){
+    insightROP: function(rop, lead, d, safetyStock, dAnnual, orderCost, holdCost, eoq, eoqRounded, dominantName, dominantVal, belowZero, belowSafety, avgStock, p_d, cycleDemand, demVar, quality, complete){
       return [
         'ROP system: order placed when stock on hand + stock in transit \u2264 ROP (' + rop + ' pcs = LT ' + lead + ' days \xd7 ' + d + ' pcs/day + safety stock ' + safetyStock + ' pcs).',
         'Order quantity (SAP HB formula): ROP + LT_forecast \u2212 stock \u2212 transit, where LT_forecast = max(LT \xd7 demand, EOQ) = max(' + (lead*d) + ', ' + eoq + ') pcs.',
         'EOQ (Wilson formula): \u221a(2 \xd7 ' + dAnnual + ' pcs/yr \xd7 ' + orderCost + ' PLN / ' + holdCost + ' PLN) = ' + eoq + ' pcs, rounded: ' + eoqRounded + ' pcs (MOQ/IOQ).',
         'Stock in transit is not constant — when demand accelerates, ROP is reached sooner and a new order is placed even while a previous one is still in transit.',
+        safetyStock > 0 ? 'Safety stock calculation: demand variability = cycle stock (' + cycleDemand + ' pcs) × ' + Math.round(demVar*100) + '% = ' + Math.round(cycleDemand*demVar) + ' pcs; incomplete deliveries = ' + cycleDemand + ' × (1−' + Math.round((1-complete)*100)/100 + ') = ' + Math.round(cycleDemand*(1-(complete||1))) + ' pcs; quality rejects = ' + cycleDemand + ' × (1−' + Math.round((1-quality)*100)/100 + ') = ' + Math.round(cycleDemand*(1-(quality||1))) + ' pcs.' : null,
         safetyStock > 0 ? 'Dominant safety stock component: ' + dominantName + ' (' + dominantVal + ' pcs).' : null,
         belowZero > 0 ? 'Backorder for ' + belowZero + ' working days — increase safety stock or EOQ.'
           : belowSafety > 0 ? 'Stock falls below safety level for ' + belowSafety + ' working days.'
@@ -475,31 +481,39 @@ function setMode(mode) {
 var $ = function(id){ return document.getElementById(id); };
 
 function getP() {
+  // Czytaj z number inputów (nie ze sliderów) — slajdery mają ograniczony zakres
+  // a number inputy przyjmują dowolną wartość wpisaną ręcznie
   return {
-    d:         +$('demand').value,
-    moq:       +$('moq').value,
-    ioq:       +$('ioq').value,
-    cycle:     +$('cycle').value,
-    lead:      +$('lead').value,
-    demVar:    +$('demVar').value / 100,
-    quality:   +$('quality').value / 100,
-    complete:  +$('complete').value / 100,
-    delay:     +$('delay').value,
-    orderCost: +($('orderCost').value || 100),
-    holdCost:  +($('holdCost').value  || 100)
+    d:         +($('vDemand').value   || 20),
+    moq:       +($('vMoq').value      || 100),
+    ioq:       +($('vIoq').value      || 10),
+    cycle:     +($('vCycle').value    || 5),
+    lead:      +($('vLead').value     || 10),
+    demVar:    +($('vDemVar').value   || 0)  / 100,
+    quality:   +($('vQuality').value  || 100) / 100,
+    complete:  +($('vComplete').value || 100) / 100,
+    delay:     +($('vDelay').value    || 0),
+    orderCost: +($('vOrderCost').value || 100),
+    holdCost:  +($('vHoldCost').value  || 100)
   };
 }
 
 function calcOrderQty(needed, moq, ioq) {
-  var base = Math.max(needed, moq);
-  return Math.ceil(base / ioq) * ioq;
+  // Minimalna partia = MOQ (zaokrąglone do IOQ w górę)
+  var minQty = Math.ceil(moq / ioq) * ioq;
+  // Żądana ilość zaokrąglona do IOQ
+  var roundedNeeded = Math.ceil(needed / ioq) * ioq;
+  // Partia = max(żądana, minimalna MOQ)
+  return Math.max(roundedNeeded, minQty);
 }
 
-function calcSafety(p) {
-  var ss1 = p.cycle * p.d * p.demVar;
-  var ss2 = p.cycle * p.d * (1 - p.quality);
-  var ss3 = p.cycle * p.d * (1 - p.complete);
-  var ss4 = p.delay * p.d;
+function calcSafety(p, cycleDemand) {
+  // Baza = zapas rotujący (przekazany z render, bo zależy od MOQ)
+  var base = cycleDemand || (p.cycle * p.d);
+  var ss1 = base * p.demVar;                   // zapas rotujący × odchylenie popytu
+  var ss2 = base * (1 - p.quality);            // zapas rotujący × (1 - jakość dostaw)
+  var ss3 = base * (1 - p.complete);           // zapas rotujący × (1 - kompletność dostaw)
+  var ss4 = p.delay * p.d;                     // opóźnienie [dni] × popyt dzienny
   return { ss1: ss1, ss2: ss2, ss3: ss3, ss4: ss4, total: ss1+ss2+ss3+ss4 };
 }
 
@@ -631,11 +645,22 @@ function render() {
   setNum('vHoldCost', p.holdCost);
 
   var T = TR[lang];
-  var ss = calcSafety(p);
+
+  // Najpierw oblicz zapas rotujący (base dla ZB), potem calcSafety
+  var cycleDemandRaw = p.d * p.cycle;
+  var orderQtyPre    = calcOrderQty(cycleDemandRaw, p.moq, p.ioq);
+  var cycleDemand    = currentMode === 'rop'
+    ? Math.round(p.d * p.lead)
+    : Math.round(Math.max(cycleDemandRaw, orderQtyPre));
+
+  var ss = calcSafety(p, cycleDemand);
   var safetyStock  = Math.round(ss.total);
-  var cycleDemand  = p.d * p.cycle;
-  var orderQty     = calcOrderQty(cycleDemand, p.moq, p.ioq);
-  var excess       = orderQty - cycleDemand;
+  var orderQty     = orderQtyPre;
+
+  // Pull: zapas rotujący = max(cykl × d, partia dostawy)
+  // ROP:  zapas rotujący = LT × d
+
+  var excess       = orderQty - cycleDemandRaw;
   var rop          = Math.round(p.d * p.lead + safetyStock);
   var maxLevel     = Math.round(cycleDemand + safetyStock);
   var targetLevel  = p.lead * p.d + maxLevel;
@@ -666,13 +691,13 @@ function render() {
     ? '<div class="mc"><div class="lbl">' + T.mEoq + '</div><div class="num">' + eoq + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mEoqSub(eoq, eoqRounded) + '</div>' + '<div class="sub">DOH: ' + doh(eoqRounded) + dohLabel + '</div>' + '</div>' +
     '<div class="mc"><div class="lbl">' + T.mOrderQty + '</div><div class="num">' + eoqRounded + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mOrderQtySub(p.moq, p.ioq, 0) + '</div>' + '<div class="sub">DOH: ' + doh(eoqRounded) + dohLabel + '</div>' + '</div>' +
     '<div class="mc"><div class="lbl">' + T.mSafety + '</div><div class="num">' + safetyStock + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">DOH: ' + doh(safetyStock) + dohLabel + '</div>' + '</div>' +
-    '<div class="mc"><div class="lbl">' + T.mRotating + '</div><div class="num">' + Math.round(cycleDemand) + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mRotatingSub(p.cycle, p.d) + '</div>' + '<div class="sub">DOH: ' + doh(cycleDemand) + dohLabel + '</div>' + '</div>' +
+    '<div class="mc"><div class="lbl">' + T.mRotating + '</div><div class="num">' + Math.round(cycleDemand) + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mRotatingRopSub(p.lead, p.d) + '</div>' + '<div class="sub">DOH: ' + doh(cycleDemand) + dohLabel + '</div>' + '</div>' +
     '<div class="mc"><div class="lbl">' + T.mRop + '</div><div class="num">' + rop + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mRopSub(p.lead) + '</div>' + '<div class="sub">DOH: ' + doh(rop) + dohLabel + '</div>' + '</div>' +
     '<div class="mc"><div class="lbl">' + T.mService + '</div><div class="num ' + (sim.stockBelowZero > 0 ? 'warn' : 'ok') + '">' + serviceLevel + '<span class="unit">%</span></div>' + '<div class="sub">' + T.mServiceSub(sim.stockBelowZero) + '</div></div>'
     : '<div class="mc"><div class="lbl">' + T.mEoqPull + '</div><div class="num">' + eoq + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mEoqPullSub(eoq, eoqRounded) + '</div>' + '<div class="sub">DOH: ' + doh(eoqRounded) + dohLabel + '</div>' + '</div>' +
     '<div class="mc"><div class="lbl">' + T.mOrderQty + '</div><div class="num">' + orderQty + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mOrderQtySub(p.moq, p.ioq, Math.round(excess)) + '</div>' + '<div class="sub">DOH: ' + doh(orderQty) + dohLabel + '</div>' + '</div>' +
     '<div class="mc"><div class="lbl">' + T.mSafety + '</div><div class="num">' + safetyStock + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">DOH: ' + doh(safetyStock) + dohLabel + '</div>' + '</div>' +
-    '<div class="mc"><div class="lbl">' + T.mRotating + '</div><div class="num">' + Math.round(cycleDemand) + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mRotatingSub(p.cycle, p.d) + '</div>' + '<div class="sub">DOH: ' + doh(cycleDemand) + dohLabel + '</div>' + '</div>' +
+    '<div class="mc"><div class="lbl">' + T.mRotating + '</div><div class="num">' + Math.round(cycleDemand) + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mRotatingSub(p.cycle, p.d, orderQty) + '</div>' + '<div class="sub">DOH: ' + doh(cycleDemand) + dohLabel + '</div>' + '</div>' +
     '<div class="mc"><div class="lbl">' + T.mMaxLevel + '</div><div class="num">' + maxLevel + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mMaxLevelSub + '</div>' + '<div class="sub">DOH: ' + doh(maxLevel) + dohLabel + '</div>' + '</div>' +
     '<div class="mc"><div class="lbl">' + T.mTarget + '</div><div class="num">' + targetLevel + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mTargetSub + '</div>' + '<div class="sub">DOH: ' + doh(targetLevel) + dohLabel + '</div>' + '</div>' +
     '<div class="mc"><div class="lbl">' + T.mRop + '</div><div class="num">' + rop + '<span class="unit">' + unit + '</span></div>' + '<div class="sub">' + T.mRopSub(p.lead) + '</div>' + '<div class="sub">DOH: ' + doh(rop) + dohLabel + '</div>' + '</div>' +
@@ -758,8 +783,8 @@ function render() {
   );
 
   var lines = currentMode === 'rop'
-    ? T.insightROP(rop, p.lead, p.d, safetyStock, p.d*250, p.orderCost, p.holdCost, eoq, eoqRounded, dominantName, dominantVal, sim.stockBelowZero, sim.stockBelowSafety, sim.avgPhysical, p.d).concat(comparison)
-    : T.insightPull(Math.round(cycleDemand), safetyStock, maxLevel, targetLevel, p.cycle, currentMode==='rop'?eoqRounded:orderQty, p.ioq, p.moq, Math.round(excess), dominantName, dominantVal, sim.stockBelowZero, sim.stockBelowSafety, sim.avgPhysical, p.d, p.lead, p.d, Math.max.apply(null, sim.physical), Math.max.apply(null, sim.available)).concat(comparison);
+    ? T.insightROP(rop, p.lead, p.d, safetyStock, p.d*250, p.orderCost, p.holdCost, eoq, eoqRounded, dominantName, dominantVal, sim.stockBelowZero, sim.stockBelowSafety, sim.avgPhysical, p.d, cycleDemand, p.demVar, p.quality, p.complete).concat(comparison)
+    : T.insightPull(Math.round(cycleDemand), safetyStock, maxLevel, targetLevel, p.cycle, currentMode==='rop'?eoqRounded:orderQty, p.ioq, p.moq, Math.round(excess), dominantName, dominantVal, sim.stockBelowZero, sim.stockBelowSafety, sim.avgPhysical, p.d, p.lead, p.d, Math.max.apply(null, sim.physical), Math.max.apply(null, sim.available), p.demVar, p.quality, p.complete).concat(comparison);
 
   // Aktualizuj widoczność elementów legendy zależnie od trybu
   var legRop = document.getElementById('legRopWrap');
