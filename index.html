@@ -79,9 +79,9 @@
 
   #printReport { display: none; }
   @media print {
-    body * { visibility: hidden; }
-    #printReport, #printReport * { visibility: visible; }
-    #printReport { display: block; position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
+    body { padding: 0; }
+    .container { display: none !important; }
+    #printReport { display: block !important; padding: 16px 20px; }
     .no-print { display: none !important; }
     .print-section { page-break-inside: avoid; margin-bottom: 28px; }
     .print-header { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
@@ -108,9 +108,19 @@
       <h1 id="hTitle">Symulacja zapasu materiałów</h1>
       <p id="hSubtitle">Horyzont symulacji: 120 dni roboczych (24 tygodnie). Wszystkie parametry wyrażone w dniach roboczych.</p>
     </div>
-    <div class="lang-switch">
-      <button id="btnPL" class="active" onclick="setLang('pl')">PL</button>
-      <button id="btnEN" onclick="setLang('en')">EN</button>
+    <div style="display:flex; align-items:center; gap:10px;" class="no-print">
+      <button class="print-btn" onclick="printReport()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        <span id="btnPrintLabel">Drukuj raport</span>
+      </button>
+      <div class="lang-switch">
+        <button id="btnPL" class="active" onclick="setLang('pl')">PL</button>
+        <button id="btnEN" onclick="setLang('en')">EN</button>
+      </div>
     </div>
   </header>
 
@@ -151,17 +161,6 @@
         <span id="btnROPLabel">System ROP (EOQ)</span>
       </button>
     </div>
-  </div>
-
-  <div style="display:flex; justify-content:flex-end; margin-bottom: 1rem;" class="no-print">
-    <button class="print-btn" onclick="printReport()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="6 9 6 2 18 2 18 9"></polyline>
-        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-        <rect x="6" y="14" width="12" height="8"></rect>
-      </svg>
-      <span id="btnPrintLabel">Drukuj raport</span>
-    </button>
   </div>
 
   <div class="card">
@@ -673,7 +672,7 @@ function render() {
       ]
     },
     options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 150 },
+      responsive: true, maintainAspectRatio: false, animation: false,
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -750,6 +749,9 @@ function printReport() {
   ['pull', 'rop'].forEach(function(mode){
     currentMode = mode;
     render();
+    // Wymuś natychmiastowe, niezanimowane przerysowanie przed przechwyceniem obrazu —
+    // inaczej toBase64Image() może uchwycić wykres w trakcie animacji (częściowo narysowany).
+    chart.draw();
     sections[mode] = {
       ssHTML:       $('ssBreakdown').innerHTML,
       metricsHTML:  $('metrics').innerHTML,
@@ -781,7 +783,10 @@ function printReport() {
   });
 
   $('printReport').innerHTML = html;
-  window.print();
+
+  // Krótkie opóźnienie, by przeglądarka zdążyła zdekodować i wyrenderować obrazy wykresów
+  // przed otwarciem okna wydruku (typowy problem: print() wywołane zanim obraz jest gotowy).
+  setTimeout(function(){ window.print(); }, 250);
 }
 
 // Synchronizacja slidera (range) z polem liczbowym (number) — pole liczbowe
